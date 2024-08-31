@@ -9,8 +9,8 @@
 
 Publish linux system performance metrics to a MQTT broker. It will also publish Home Assistant MQTT Discovery messages so that (binary) sensors automatically show up in Home Assistant.
 
-It is available as python package on [pypi/docker2mqtt](https://pypi.org/p/docker2mqtt).
-[![PyPI version](https://badge.fury.io/py/docker2mqtt.svg)](https://pypi.org/p/linux2mqtt)
+It is available as python package on [pypi/linux2mqtt](https://pypi.org/p/linux2mqtt).
+[![PyPI version](https://badge.fury.io/py/linux2mqtt.svg)](https://pypi.org/p/linux2mqtt)
 
 `linux2mqtt` is a lightweight wrapper around [psutil](https://pypi.org/project/psutil/) that publishes CPU utilization, free memory, and other system-level stats to a MQTT broker. The primary use case is to collect system performance metrics for ingestion into [Home Assistant](https://www.home-assistant.io/) (HA) for alerting, reporting, and firing off any number of automations. However, given the minimal nature of this code, it could be used for other purposes as well.
 
