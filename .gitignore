@@ -1,0 +1,8 @@
+.venv
+.mypy_cache
+.ruff_cache
+site
+local-test.sh
+linux2mqtt.egg-info
+__pycache__
+build

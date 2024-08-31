@@ -1,0 +1,12 @@
+paho-mqtt
+types-paho-mqtt
+jsons
+psutil
+types-psutil
+numpy
+mypy>=1.8.0
+pre-commit>=3.6.1
+python-dotenv>=1.0.1
+ruff~=0.6
+mkdocs-material==9.5.30
+mkdocstrings[python]==0.25.2
