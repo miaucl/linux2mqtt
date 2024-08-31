@@ -56,7 +56,7 @@ jobs:
       - name: Extract version from setup config
         id: extract_config_version
         run: |
-          VERSION=$(grep 'version' ./setup.cfg | sed -E 's/version = (.*)[[:space:]]/\1/')
+          VERSION=$(grep 'version' ./setup.cfg | sed -E 's/version = (.*)[[:space:]]*$/\1/')
           echo "CONFIG_VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Compare versions
