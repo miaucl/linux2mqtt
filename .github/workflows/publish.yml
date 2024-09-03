@@ -47,28 +47,22 @@ jobs:
           TAG_VERSION=${GITHUB_REF#refs/tags/}
           echo "TAG_VERSION=$TAG_VERSION" >> $GITHUB_ENV
 
-      - name: Extract version from file
-        id: extract_file_version
+      - name: Check tag in package
         run: |
-          VERSION=$(grep '__VERSION__' ./linux2mqtt/__init__.py | sed -E 's/__VERSION__ = "(.*)"/\1/')
-          echo "FILE_VERSION=$VERSION" >> $GITHUB_ENV
-
-      - name: Extract version from setup config
-        id: extract_config_version
-        run: |
-          VERSION=$(grep 'version' ./setup.cfg | sed -E 's/version = (.*)[[:space:]]*$/\1/')
-          echo "CONFIG_VERSION=$VERSION" >> $GITHUB_ENV
-
-      - name: Compare versions
-        run: |
-          if [ "$TAG_VERSION" != "$FILE_VERSION" ]; then
-            echo "Tag version ($TAG_VERSION) does not match file version ($FILE_VERSION)."
-            exit 1
-          elif  [ "$TAG_VERSION" != "$CONFIG_VERSION" ]; then
-            echo "Tag version ($TAG_VERSION) does not match config version ($CONFIG_VERSION)."
+          if ! grep -q "__VERSION__ = \"$TAG_VERSION\"" ./linux2mqtt/__init__.py; then
+            echo "Error: Tag version $TAG_VERSION not found in the package."
             exit 1
           else
-            echo "Tag version ($TAG_VERSION) matches file version ($FILE_VERSION)."
+            echo "Success: Tag version $TAG_VERSION found in package."
+          fi
+
+      - name: Check tag in setup.cfg
+        run: |
+          if ! grep -q "version = $TAG_VERSION" setup.cfg; then
+            echo "Error: Tag version $TAG_VERSION not found in the setup.cfg."
+            exit 1
+          else
+            echo "Success: Tag version $TAG_VERSION found in setup.cfg."
           fi
 
       - name: Check changelog entry
