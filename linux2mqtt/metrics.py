@@ -229,7 +229,7 @@ class CPUMetrics(BaseMetric):
 
     _name = "cpu"
     icon = "mdi:chip"
-    unit_of_measurement = None
+    unit_of_measurement = "%"
     state_field = "used"
 
     interval: int
