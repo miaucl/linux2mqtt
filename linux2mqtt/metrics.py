@@ -300,7 +300,7 @@ class VirtualMemoryMetrics(BaseMetric):
     _name = "Virtual Memory"
     icon = "mdi:memory"
     device_class = "data_size"
-    unit_of_measurement = "B"
+    unit_of_measurement = "MB"
     state_field = "used"
 
     def poll(self, result_queue: Queue[Self]) -> bool:
@@ -324,7 +324,15 @@ class VirtualMemoryMetrics(BaseMetric):
         """
         try:
             vm = psutil.virtual_memory()
-            self.polled_result = jsons.dump(vm)  # type: ignore[unused-ignore]
+            self.polled_result = {
+                "total": float(vm.total) / 1_000_000,
+                "available": float(vm.available) / 1_000_000,
+                "percent": vm.percent,
+                "used": float(vm.used) / 1_000_000,
+                "free": float(vm.free) / 1_000_000,
+                "active": float(vm.active) / 1_000_000,
+                "inactive": float(vm.inactive) / 1_000_000,
+            }
             return False
         except Exception as ex:
             raise Linux2MqttMetricsException(
@@ -346,7 +354,7 @@ class DiskUsageMetrics(BaseMetric):
 
     icon = "mdi:harddisk"
     device_class = "data_size"
-    unit_of_measurement = "B"
+    unit_of_measurement = "GB"
     state_field = "used"
 
     _name_template = "Disk Usage (Volume:{})"
@@ -379,7 +387,13 @@ class DiskUsageMetrics(BaseMetric):
         """
         try:
             disk = psutil.disk_usage(self.mountpoint)
-            self.polled_result = jsons.dump(disk)  # type: ignore[unused-ignore]
+            self.polled_result = {
+                "total": float(disk.total) / 1_000_000_000,
+                "used": float(disk.used) / 1_000_000_000,
+                "free": float(disk.free) / 1_000_000_000,
+                "percent": disk.percent,
+            }
+
             return False
         except Exception as ex:
             raise Linux2MqttMetricsException(
@@ -467,10 +481,9 @@ class NetworkMetricThread(BaseMetricThread):
                 rx_rate = rx_rate_bytes_sec / 125.0  # bytes/sec to kilobits/sec
 
                 self.metric.polled_result = {
-                    **jsons.dump(nics[self.nic]),  # type: ignore[unused-ignore]
-                    "total_rate": tx_rate + rx_rate,
-                    "tx_rate": tx_rate,
-                    "rx_rate": rx_rate,
+                    "total_rate": int(tx_rate + rx_rate),
+                    "tx_rate": int(tx_rate),
+                    "rx_rate": int(rx_rate),
                 }
                 self.result_queue.put(self.metric)
             else:
@@ -497,7 +510,7 @@ class NetworkMetrics(BaseMetric):
 
     icon = "mdi:server-network"
     device_class = "data_rate"
-    unit_of_measurement = "b/s"
+    unit_of_measurement = "kbit/s"
     state_field = "total_rate"
 
     _name_template = "Network Throughput (NIC:{})"
