@@ -1,5 +1,7 @@
 """linux2mqtt helpers."""
 
+from urllib.parse import quote
+
 
 def sanitize(val: str) -> str:
     """Sanitize a value for unique_id usage.
@@ -15,4 +17,4 @@ def sanitize(val: str) -> str:
         The sanitized value
 
     """
-    return val.lower().replace(" ", "_").replace("/", "_")
+    return quote(val)
