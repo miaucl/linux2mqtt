@@ -463,6 +463,7 @@ def main() -> None:
     parser.add_argument(
         "--port",
         default=MQTT_PORT_DEFAULT,
+        type=int,
         help="Port or IP address of the MQTT broker (default: 1883)",
     )
     parser.add_argument(
