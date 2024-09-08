@@ -487,6 +487,7 @@ def main() -> None:
         type=int,
         help="Publish metrics to MQTT broker every n seconds (default: 30)",
         choices=range(MIN_INTERVAL, MAX_INTERVAL),
+        metavar="INTERVAL",
     )
     parser.add_argument(
         "--homeassistant-prefix",
