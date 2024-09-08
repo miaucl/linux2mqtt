@@ -29,6 +29,7 @@ from .const import (
     MQTT_CLIENT_ID_DEFAULT,
     MQTT_PORT_DEFAULT,
     MQTT_QOS_DEFAULT,
+    MQTT_TIMEOUT_DEFAULT,
 )
 from .exceptions import Linux2MqttConfigException, Linux2MqttConnectionException
 from .helpers import sanitize
@@ -182,7 +183,9 @@ class Linux2Mqtt:
                 qos=self.cfg["mqtt_qos"],
                 retain=True,
             )
-            self.mqtt.connect(self.cfg["mqtt_host"], self.cfg["mqtt_port"])
+            self.mqtt.connect(
+                self.cfg["mqtt_host"], self.cfg["mqtt_port"], self.cfg["mqtt_timeout"]
+            )
             self.mqtt.loop_start()
             self._mqtt_send(self.status_topic, "online", retain=True)
             self._mqtt_send(self.version_topic, self.version, retain=True)
@@ -480,6 +483,12 @@ def main() -> None:
         type=int,
         help="QOS for standard MQTT messages (default: 1)",
         choices=range(0, 3),
+    )
+    parser.add_argument(
+        "--timeout",
+        default=MQTT_TIMEOUT_DEFAULT,
+        type=int,
+        help=f"The timeout for the MQTT connection. (default: {MQTT_TIMEOUT_DEFAULT}s)",
     )
     parser.add_argument(
         "--interval",
