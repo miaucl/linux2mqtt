@@ -1,6 +1,6 @@
 """linux2mqtt helpers."""
 
-from urllib.parse import quote
+import re
 
 
 def sanitize(val: str) -> str:
@@ -17,4 +17,4 @@ def sanitize(val: str) -> str:
         The sanitized value
 
     """
-    return quote(val)
+    return re.sub(r"[^a-zA-Z0-9_-]", "_", val.lower())
