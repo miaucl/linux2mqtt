@@ -300,8 +300,8 @@ class VirtualMemoryMetrics(BaseMetric):
     _name = "Virtual Memory"
     icon = "mdi:memory"
     device_class = "data_size"
-    unit_of_measurement = "%"
-    state_field = "percent"
+    unit_of_measurement = "B"
+    state_field = "used"
 
     def poll(self, result_queue: Queue[Self]) -> bool:
         """Poll new data for the virtual memory metric.
@@ -346,8 +346,8 @@ class DiskUsageMetrics(BaseMetric):
 
     icon = "mdi:harddisk"
     device_class = "data_size"
-    unit_of_measurement = "%"
-    state_field = "percent"
+    unit_of_measurement = "B"
+    state_field = "used"
 
     _name_template = "Disk Usage (Volume:{})"
     mountpoint: str
@@ -497,7 +497,7 @@ class NetworkMetrics(BaseMetric):
 
     icon = "mdi:server-network"
     device_class = "data_rate"
-    unit_of_measurement = "kb/s"
+    unit_of_measurement = "b/s"
     state_field = "total_rate"
 
     _name_template = "Network Throughput (NIC:{})"
