@@ -448,6 +448,9 @@ def main() -> None:
     """
     parser = argparse.ArgumentParser()
     parser.add_argument(
+        "--version", action="version", version=f"%(prog)s {__VERSION__}"
+    )
+    parser.add_argument(
         "--name",
         default=socket.gethostname(),
         help="A descriptive name for the system being monitored (default: hostname)",
@@ -579,7 +582,7 @@ def main() -> None:
             "mqtt_host": args.host,
             "mqtt_port": args.port,
             "mqtt_timeout": args.timeout,
-            "mqtt_topic_prefix": args.mqtt_topic_prefix,
+            "mqtt_topic_prefix": args.topic_prefix,
             "mqtt_qos": args.qos,
             "interval": args.interval,
         }
