@@ -1,6 +1,6 @@
 """linux2mqtt package."""
 
-__VERSION__ = "1.0.0"
+__VERSION__ = "1.1.0a4"
 
 from .const import (
     DEFAULT_CONFIG,
@@ -28,7 +28,7 @@ from .exceptions import (
     Linux2MqttException,
     Linux2MqttMetricsException,
 )
-from .helpers import sanitize
+from .helpers import clean_for_discovery, sanitize
 from .linux2mqtt import Linux2Mqtt
 from .metrics import (
     BaseMetric,
@@ -53,6 +53,7 @@ from .type_definitions import (
 __all__ = [
     "MAX_QUEUE_SIZE",
     "sanitize",
+    "clean_for_discovery",
     "LinuxDeviceEntry",
     "LinuxEntry",
     "Linux2Mqtt",

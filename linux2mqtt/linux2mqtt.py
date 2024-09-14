@@ -33,7 +33,7 @@ from .const import (
     MQTT_TIMEOUT_DEFAULT,
 )
 from .exceptions import Linux2MqttConfigException, Linux2MqttConnectionException
-from .helpers import sanitize
+from .helpers import clean_for_discovery, sanitize
 from .metrics import (
     BaseMetric,
     CPUMetrics,
@@ -343,7 +343,7 @@ class Linux2Mqtt:
             )
             self._mqtt_send(
                 discovery_topic.format(metric.name_sanitized),
-                json.dumps(discovery_entry),
+                json.dumps(clean_for_discovery(discovery_entry)),
                 retain=True,
             )
             self._report_status(
