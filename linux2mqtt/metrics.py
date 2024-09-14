@@ -58,7 +58,7 @@ class BaseMetric:
 
     ha_sensor_type: SensorType = "sensor"
 
-    polled_result: Dict[str, str | int | float] | None
+    polled_result: Dict[str, str | int | float | None] | None
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Initialize base class."""
