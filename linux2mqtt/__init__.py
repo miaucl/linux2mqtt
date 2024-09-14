@@ -38,6 +38,7 @@ from .metrics import (
     DiskUsageMetrics,
     NetworkMetrics,
     NetworkMetricThread,
+    TempMetrics,
     VirtualMemoryMetrics,
 )
 from .type_definitions import (
@@ -79,6 +80,7 @@ __all__ = [
     "NetworkMetrics",
     "NetworkMetricThread",
     "DiskUsageMetrics",
+    "TempMetrics",
     "HOMEASSISTANT_PREFIX_DEFAULT",
     "MQTT_CLIENT_ID_DEFAULT",
     "MQTT_PORT_DEFAULT",

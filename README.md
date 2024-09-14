@@ -81,6 +81,12 @@ The sensor state equals average throughput of the interface during the collectio
 
 This will publish network throughput information about Server1's `eth0` interface to the MQTT broker once every 60 seconds. The sensor state will equal the average network throughput over the previous 15 seconds.
 
+### Thermal zones
+
+`linux2mqtt` can publish temperature metrics for thermal zones using the `temp` option. Each thermal zone will present as a separate sensor in Home Assistant. The sensor state reports the temperature in `°C`. Additional data is accessible as state attributes on each sensor.
+
+`linux2mqtt --name Server1 -vvvvv --cpu=60 --vm --temp`
+
 ## Compatibility
 
 `linux2mqtt` has been tested to work on CentOS, Ubuntu, and Debian (Raspberry Pi), even tough some features are not available everywhere. **Python 3.10 (or above) is recommended.**
