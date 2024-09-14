@@ -87,6 +87,12 @@ This will publish network throughput information about Server1's `eth0` interfac
 
 `linux2mqtt --name Server1 -vvvvv --cpu=60 --vm --temp`
 
+### Fan speeds
+
+`linux2mqtt` can publish fan speeds using the `fan` option. Each fan will present as a separate sensor in Home Assistant, but be aware this is only for monitoring which means it is not an actual fan entity but only presents itself as a sensor with **no** device class and **no** unit of measurements. The sensor state reports the fan speed in `RPM`. Additional data is accessible as state attributes on each sensor.
+
+`linux2mqtt --name Server1 -vvvvv --cpu=60 --vm --fan`
+
 ## Compatibility
 
 `linux2mqtt` has been tested to work on CentOS, Ubuntu, and Debian (Raspberry Pi), even tough some features are not available everywhere. **Python 3.10 (or above) is recommended.**
