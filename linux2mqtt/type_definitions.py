@@ -114,16 +114,16 @@ class LinuxEntry(TypedDict):
 
     name: str
     unique_id: str
-    icon: str | None
+    icon: str
     availability_topic: str
     payload_available: str
     payload_not_available: str
     state_topic: str
     value_template: str
-    unit_of_measurement: str | None
+    unit_of_measurement: str
     payload_on: str
     payload_off: str
     device: LinuxDeviceEntry
-    device_class: str | None
+    device_class: str
     json_attributes_topic: str
     qos: int
