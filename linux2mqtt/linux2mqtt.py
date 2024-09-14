@@ -13,6 +13,7 @@ import time
 from typing import Any, List
 
 import paho.mqtt.client
+import psutil
 
 from . import __VERSION__
 from .const import (
@@ -38,6 +39,7 @@ from .metrics import (
     CPUMetrics,
     DiskUsageMetrics,
     NetworkMetrics,
+    TempMetrics,
     VirtualMemoryMetrics,
 )
 from .type_definitions import Linux2MqttConfig, LinuxDeviceEntry
@@ -548,6 +550,9 @@ def main() -> None:
         default=None,
         metavar="NIC",
     )
+    parser.add_argument(
+        "--temp", help="Publish temperature of thermal zones", action="store_true"
+    )
 
     try:
         args = parser.parse_args()
@@ -615,6 +620,13 @@ def main() -> None:
                 i = 15
             net = NetworkMetrics(n, i)
             stats.add_metric(net)
+
+    if args.temp:
+        st = psutil.sensors_temperatures()  # type: ignore
+        for device in st:
+            for thermal_zone in st[device]:
+                tm = TempMetrics(device=device, thermal_zone=thermal_zone.label)
+                stats.add_metric(tm)
 
     if not (args.vm or args.cpu or args.du or args.net):
         main_logger.warning("No metrics specified. Nothing will be published.")

@@ -58,7 +58,7 @@ class BaseMetric:
 
     ha_sensor_type: SensorType = "sensor"
 
-    polled_result: Dict[str, str | int | float] | None
+    polled_result: Dict[str, str | int | float | None] | None
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Initialize base class."""
@@ -579,3 +579,79 @@ class NetworkMetrics(BaseMetric):
         th.daemon = True
         th.start()
         return True  # Expect a deferred result
+
+
+class TempMetrics(BaseMetric):
+    """Thermal zones metric."""
+
+    icon = "mdi:thermometer"
+    device_class = "temperature"
+    unit_of_measurement = "°C"
+    state_field = "current"
+
+    _name_template = "Thermal Zone ({}/{})"
+    _device: str
+    _thermal_zone: str
+
+    def __init__(self, device: str, thermal_zone: str):
+        """Initialize the thermal zone metric.
+
+        Parameters
+        ----------
+        device
+            The device
+        thermal_zone
+            The thermal zone
+
+        Raises
+        ------
+        Linux2MqttConfigException
+            Bad config
+
+        """
+        super().__init__()
+        self._device = device
+        self._thermal_zone = thermal_zone
+        self._name = self._name_template.format(device, thermal_zone)
+
+    def poll(self, result_queue: Queue[Self]) -> bool:
+        """Poll new data for the thermal zone metric.
+
+        Parameters
+        ----------
+        result_queue
+            (Unused)
+
+        Returns
+        -------
+        bool
+            True as the data is readily available
+
+        Raises
+        ------
+        Linux2MqttMetricsException
+            thermal zone information could not be gathered or prepared for publishing
+
+        """
+        try:
+            st = psutil.sensors_temperatures()  # type: ignore
+            thermal_zone = next(
+                (
+                    item
+                    for item in st.get(self._device, [])
+                    if item.label == self._thermal_zone
+                ),
+                None,
+            )
+            assert thermal_zone
+            self.polled_result = {
+                "label": thermal_zone.label,
+                "current": thermal_zone.current,
+                "high": thermal_zone.high,
+                "critical": thermal_zone.critical,
+            }
+            return False
+        except Exception as ex:
+            raise Linux2MqttMetricsException(
+                "Could not gather and publish thermal zone data"
+            ) from ex
