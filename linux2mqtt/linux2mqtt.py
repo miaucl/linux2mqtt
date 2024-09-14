@@ -38,6 +38,7 @@ from .metrics import (
     BaseMetric,
     CPUMetrics,
     DiskUsageMetrics,
+    FanSpeedMetrics,
     NetworkMetrics,
     TempMetrics,
     VirtualMemoryMetrics,
@@ -553,6 +554,7 @@ def main() -> None:
     parser.add_argument(
         "--temp", help="Publish temperature of thermal zones", action="store_true"
     )
+    parser.add_argument("--fan", help="Publish fan speeds", action="store_true")
 
     try:
         args = parser.parse_args()
@@ -628,7 +630,14 @@ def main() -> None:
                 tm = TempMetrics(device=device, thermal_zone=thermal_zone.label)
                 stats.add_metric(tm)
 
-    if not (args.vm or args.cpu or args.du or args.net):
+    if args.fan:
+        fans = psutil.sensors_fans()  # type: ignore
+        for device in fans:
+            for fan in fans[device]:
+                fm = FanSpeedMetrics(device=device, fan=fan.label)
+                stats.add_metric(fm)
+
+    if not (args.vm or args.cpu or args.du or args.net or args.temp or args.fan):
         main_logger.warning("No metrics specified. Nothing will be published.")
 
     stats.connect()

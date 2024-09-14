@@ -630,7 +630,7 @@ class TempMetrics(BaseMetric):
         Raises
         ------
         Linux2MqttMetricsException
-            thermal zone information could not be gathered or prepared for publishing
+            Thermal zone information could not be gathered or prepared for publishing
 
         """
         try:
@@ -654,4 +654,75 @@ class TempMetrics(BaseMetric):
         except Exception as ex:
             raise Linux2MqttMetricsException(
                 "Could not gather and publish thermal zone data"
+            ) from ex
+
+
+class FanSpeedMetrics(BaseMetric):
+    """Fan speed metric."""
+
+    icon = "mdi:fan"
+    device_class = ""
+    unit_of_measurement = ""
+    state_field = "current"
+
+    _name_template = "Fan Speed ({}/{})"
+    _device: str
+    _fan: str
+
+    def __init__(self, device: str, fan: str):
+        """Initialize the fan speed metric.
+
+        Parameters
+        ----------
+        device
+            The device
+        fan
+            The fan
+
+        Raises
+        ------
+        Linux2MqttConfigException
+            Bad config
+
+        """
+        super().__init__()
+        self._device = device
+        self._fan = fan
+        self._name = self._name_template.format(device, fan)
+
+    def poll(self, result_queue: Queue[Self]) -> bool:
+        """Poll new data for the thermal zone metric.
+
+        Parameters
+        ----------
+        result_queue
+            (Unused)
+
+        Returns
+        -------
+        bool
+            True as the data is readily available
+
+        Raises
+        ------
+        Linux2MqttMetricsException
+            Fan speed information could not be gathered or prepared for publishing
+
+        """
+        try:
+            st = psutil.sensors_fans()  # type: ignore
+            fan = next(
+                (item for item in st.get(self._device, []) if item.label == self._fan),
+                None,
+            )
+            assert fan
+            self.polled_result = {
+                "label": fan.label,
+                "current": fan.current,
+                "unit": "rpm",
+            }
+            return False
+        except Exception as ex:
+            raise Linux2MqttMetricsException(
+                "Could not gather and publish fan speed data"
             ) from ex
