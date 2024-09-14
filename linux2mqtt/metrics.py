@@ -51,9 +51,9 @@ class BaseMetric:
     """
 
     _name: str
-    unit_of_measurement: str | None = None
-    device_class: str | None = None
-    icon: str | None = None
+    unit_of_measurement: str = ""
+    device_class: str = ""
+    icon: str = ""
     state_field: str = "state"
 
     ha_sensor_type: SensorType = "sensor"
