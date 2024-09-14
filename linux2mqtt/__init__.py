@@ -1,6 +1,6 @@
 """linux2mqtt package."""
 
-__VERSION__ = "1.1.0a1"
+__VERSION__ = "1.1.0a2"
 
 from .const import (
     DEFAULT_CONFIG,
