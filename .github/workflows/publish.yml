@@ -78,6 +78,34 @@ jobs:
             echo "Pre-release tag, skipping changelog check"
           fi
 
+      - name: Check if version type matches branch type
+        run: |
+          branch=$(git branch -r --contains $(git rev-parse HEAD) | grep -Eo 'origin/[^ ]+' | sed 's|origin/||' | head -n 1)
+          echo "Branch: $branch"
+          version=${GITHUB_REF#refs/tags/}
+          echo "Version from tag: $version"
+
+          # Check if the version is a prerelease
+          if [[ "$version" =~ [a-zA-Z] ]]; then
+            echo "Prerelease version detected: $version"
+            prerelease=true
+          else
+            echo "Final release version detected: $version"
+            prerelease=false
+          fi
+
+          # Fail if it's a prerelease and on the master branch
+          if [[ "$branch" == "master" && "$prerelease" == "true" ]]; then
+            echo "Error: Prerelease versions are not allowed on the master branch."
+            exit 1
+          fi
+
+          # Fail if it's a final release on a non-master branch
+          if [[ "$branch" != "master" && "$prerelease" == "false" ]]; then
+            echo "Error: Final releases are not allowed on non-master branches."
+            exit 1
+          fi
+
   publish-to-pypi:
     name: >-
       Publish Python 🐍 distribution 📦 to PyPI
@@ -117,6 +145,14 @@ jobs:
       run: |
         TAG_VERSION=${GITHUB_REF#refs/tags/}
         echo "version=$TAG_VERSION" >> $GITHUB_OUTPUT
+    - name: Check if version is prerelease
+      id: check_prerelease
+      run: |
+        TAG_VERSION="${{ steps.version.outputs.version }}"
+        if [[ "$TAG_VERSION" =~ [a-zA-Z] ]]; then
+          echo "prerelease=true" >> $GITHUB_OUTPUT
+        else
+          echo "prerelease=false" >> $GITHUB_OUTPUT
     - name: Download all the dists
       uses: actions/download-artifact@v4
       with:
@@ -134,6 +170,7 @@ jobs:
         tag_name: ${{ github.ref }}
         name: Release ${{ steps.version.outputs.version }}
         generate_release_notes: true
+        prerelease: ${{ steps.check_prerelease.outputs.prerelease }}  # Mark as prerelease if necessary
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}   
     - name: Upload artifact signatures to GitHub Release
