@@ -174,6 +174,12 @@ Following VSCode integrations may be helpful:
 * [mypy](https://marketplace.visualstudio.com/items?itemName=matangover.mypy)
 * [markdownlint](https://marketplace.visualstudio.com/items?itemName=DavidAnson.vscode-markdownlint)
 
+### Releasing
+
+It is only possible to release a _final version_ on the `master` branch. For it to pass the gates of the `publish` workflow, it must have the same version in the `tag`, the `setup.cfg`, the `bring_api/__init__.py` and an entry in the `CHANGELOG.md` file.
+
+To release a prerelease version, no changelog entry is required, but it can only happen on a feature branch (**not** `master` branch). Also, prerelease versions are marked as such in the github release page.
+
 ## Credits
 
 This is a detached fork from the repo <https://github.com/jamiebegin/linux2mqtt>, which does not seem to get evolved anymore.
