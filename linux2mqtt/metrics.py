@@ -4,12 +4,11 @@ import logging
 from queue import Queue
 import threading
 import time
-from typing import Any, Dict
+from typing import Any, Self
 
-import jsons  # type: ignore
+import jsons  # type: ignore[import-untyped]
 import numpy as np
 import psutil
-from typing_extensions import Self
 
 from .const import (
     MAX_CPU_INTERVAL,
@@ -58,7 +57,7 @@ class BaseMetric:
 
     ha_sensor_type: SensorType = "sensor"
 
-    polled_result: Dict[str, str | int | float | None] | None
+    polled_result: dict[str, str | int | float | None] | None
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Initialize base class."""
@@ -634,7 +633,7 @@ class TempMetrics(BaseMetric):
 
         """
         try:
-            st = psutil.sensors_temperatures()  # type: ignore
+            st = psutil.sensors_temperatures()  # type: ignore[attr-defined]
             thermal_zone = next(
                 (
                     item
@@ -710,7 +709,7 @@ class FanSpeedMetrics(BaseMetric):
 
         """
         try:
-            st = psutil.sensors_fans()  # type: ignore
+            st = psutil.sensors_fans()  # type: ignore[attr-defined]
             fan = next(
                 (item for item in st.get(self._device, []) if item.label == self._fan),
                 None,
