@@ -15,7 +15,7 @@ from typing import Any
 import paho.mqtt.client
 import psutil
 
-from . import __VERSION__
+from . import __version__
 from .const import (
     DEFAULT_CPU_INTERVAL,
     DEFAULT_INTERVAL,
@@ -79,7 +79,7 @@ class Linux2Mqtt:
     """
 
     # Version
-    version: str = __VERSION__
+    version: str = __version__
 
     cfg: Linux2MqttConfig
     metrics: list[BaseMetric]
@@ -451,7 +451,7 @@ def main() -> None:
     """
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--version", action="version", version=f"%(prog)s {__VERSION__}"
+        "--version", action="version", version=f"%(prog)s {__version__}"
     )
     parser.add_argument(
         "--name",
