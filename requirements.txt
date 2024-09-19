@@ -1,5 +1,5 @@
 paho-mqtt
 jsons
-psutil>=5.0.0,<6.0.0
+psutil>=5.0.0,<7.0.0
 numpy
 typing-extensions
