@@ -10,7 +10,7 @@ import signal
 import socket
 import sys
 import time
-from typing import Any, List
+from typing import Any
 
 import paho.mqtt.client
 import psutil
@@ -82,7 +82,7 @@ class Linux2Mqtt:
     version: str = __VERSION__
 
     cfg: Linux2MqttConfig
-    metrics: List[BaseMetric]
+    metrics: list[BaseMetric]
     connected: bool
 
     mqtt: paho.mqtt.client.Client
@@ -172,7 +172,7 @@ class Linux2Mqtt:
         """
         try:
             self.mqtt = paho.mqtt.client.Client(
-                callback_api_version=paho.mqtt.client.CallbackAPIVersion.VERSION2,  # type: ignore
+                callback_api_version=paho.mqtt.client.CallbackAPIVersion.VERSION2,  # type: ignore[attr-defined, call-arg]
                 client_id=self.cfg["mqtt_client_id"],
             )
             if self.cfg["mqtt_user"] or self.cfg["mqtt_password"]:
@@ -624,14 +624,14 @@ def main() -> None:
             stats.add_metric(net)
 
     if args.temp:
-        st = psutil.sensors_temperatures()  # type: ignore
+        st = psutil.sensors_temperatures()  # type: ignore[attr-defined]
         for device in st:
             for thermal_zone in st[device]:
                 tm = TempMetrics(device=device, thermal_zone=thermal_zone.label)
                 stats.add_metric(tm)
 
     if args.fan:
-        fans = psutil.sensors_fans()  # type: ignore
+        fans = psutil.sensors_fans()  # type: ignore[attr-defined]
         for device in fans:
             for fan in fans[device]:
                 fm = FanSpeedMetrics(device=device, fan=fan.label)

@@ -5,7 +5,8 @@ psutil>=5.0.0,<6.0.0
 types-psutil>=5.0.0,<6.0.0
 numpy
 typing-extensions
-mypy>=1.8.0
+mypy
+pydantic
 pre-commit>=3.6.1
 python-dotenv>=1.0.1
 ruff~=0.6
