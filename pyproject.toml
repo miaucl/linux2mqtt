@@ -5,6 +5,52 @@ requires = [
 ]
 build-backend = "setuptools.build_meta"
 
+[project]
+name = "linux2mqtt"
+dynamic = ["version", "readme"]
+description = "Send your linux stats and and events to mqtt and discovery them in home assistant."
+authors = [
+  { name = "Cyrill Raccaud", email = "cyrill.raccaud+pypi@gmail.com" },
+]
+dependencies = [
+  "jsons",
+  "psutil",
+  "paho-mqtt",
+  "numpy",
+  "typing-extensions"
+]
+requires-python = ">=3.11"
+
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Intended Audience :: Information Technology",
+  "Topic :: System :: Monitoring",
+  "Topic :: System :: Logging",
+  "Topic :: System :: Systems Administration",
+]
+license = {text = "MIT License"}
+keywords = ["linux", "mqtt", "paho", "home-assistant", "system-monitoring", "discovery", "iot"]
+
+[tool.setuptools]
+packages = ["linux2mqtt"]
+
+[tool.setuptools.package-data]
+linux2mqtt = ["py.typed"]
+
+[tool.setuptools.dynamic]
+version = {attr = "linux2mqtt.__version__"}
+readme = {file = ["README.md", "CHANGELOG.md"], content-type = "text/markdown"}
+
+[project.urls]
+Documentation = "https://miaucl.github.io/linux2mqtt/"
+Source = "https://github.com/miaucl/linux2mqtt"
+Issues = "https://github.com/miaucl/linux2mqtt/issues"
+
+[project.scripts]
+linux2mqtt = "linux2mqtt.linux2mqtt:main"
+
 [tool.ruff]
 
 target-version = "py312"
@@ -69,7 +115,7 @@ select = [
     "TID251", # Banned imports
     "TRY004", # Prefer TypeError exception for invalid type
     "B904", # Use raise from to specify exception cause
-    "TRY302", # Remove exception handler; error is immediately re-raised
+    "TRY", # tryceratops
     "UP",  # pyupgrade
     "W",  # pycodestyle
 ]
@@ -96,10 +142,7 @@ ignore = [
     "PLR0915", # Too many statements ({statements} > {max_statements})
     "PLR2004",  # Magic value used in comparison, consider replacing {value} with a constant variable
     "PLW2901", # Outer {outer_kind} variable {name} overwritten by inner {inner_kind} target
-    "UP006", # keep type annotation style as is
-    "UP007", # keep type annotation style as is
-    # Ignored due to performance: https://github.com/charliermarsh/ruff/issues/2923
-    "UP038", # Use `X | Y` in `isinstance` call instead of `(X, Y)`
+    "TRY003", # Avoid specifying long messages outside the exception class
 
     # May conflict with the formatter, https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
     "W191",
@@ -144,3 +187,26 @@ split-on-trailing-comma = false
 
 [tool.ruff.lint.mccabe]
 max-complexity = 25
+
+[tool.mypy]
+python_version = "3.12"
+plugins = "pydantic.mypy"
+show_error_codes = true
+local_partial_types = true
+strict_equality = true
+no_implicit_optional = true
+warn_incomplete_stub = true
+warn_redundant_casts = true
+warn_unused_configs = true
+warn_unused_ignores = false
+enable_error_code = ["ignore-without-code", "redundant-self", "truthy-iterable"]
+disable_error_code = ["annotation-unchecked", "import-not-found", "import-untyped"]
+extra_checks = false
+check_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_untyped_decorators = true
+disallow_untyped_defs = true
+warn_return_any = true
+warn_unreachable = true

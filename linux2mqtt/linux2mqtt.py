@@ -193,8 +193,8 @@ class Linux2Mqtt:
             self._mqtt_send(self.status_topic, "online", retain=True)
             self._mqtt_send(self.version_topic, self.version, retain=True)
         except paho.mqtt.client.WebsocketConnectionError as ex:
-            main_logger.error("Error while trying to connect to MQTT broker.")
-            main_logger.error(str(ex))
+            main_logger.exception("Error while trying to connect to MQTT broker.")
+            main_logger.debug(ex)
             raise Linux2MqttConnectionException from ex
 
     def _on_connect(
@@ -258,7 +258,8 @@ class Linux2Mqtt:
             )
 
         except paho.mqtt.client.WebsocketConnectionError as ex:
-            main_logger.error("MQTT Publish Failed: %s", str(ex))
+            main_logger.exception("MQTT Publish Failed")
+            main_logger.debug(ex)
             raise Linux2MqttConnectionException() from ex
 
     def _device_definition(self) -> LinuxDeviceEntry:
@@ -320,7 +321,8 @@ class Linux2Mqtt:
             self.mqtt.loop_stop()
             self.mqtt.disconnect()
         except Linux2MqttConnectionException as ex:
-            main_logger.error("MQTT cleanup Failed: %s", str(ex))
+            main_logger.exception("MQTT cleanup Failed")
+            main_logger.debug(ex)
             main_logger.info("Ignoring cleanup error and exiting...")
 
     def _create_discovery_topics(self) -> None:
@@ -431,7 +433,7 @@ class Linux2Mqtt:
                         self._publish_metric(metric)
             except Linux2MqttConnectionException as ex:
                 if raise_known_exceptions:
-                    raise ex
+                    raise ex  # noqa: TRY201
                 else:
                     main_logger.warning(
                         "Do not raise due to raise_known_exceptions=False: %s", str(ex)

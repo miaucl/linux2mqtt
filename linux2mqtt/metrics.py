@@ -332,11 +332,12 @@ class VirtualMemoryMetrics(BaseMetric):
                 "active": float(vm.active) / 1_000_000,
                 "inactive": float(vm.inactive) / 1_000_000,
             }
-            return False
         except Exception as ex:
             raise Linux2MqttMetricsException(
                 "Could not gather and publish virtual memory data"
             ) from ex
+        else:
+            return False
 
 
 class DiskUsageMetrics(BaseMetric):
@@ -392,12 +393,12 @@ class DiskUsageMetrics(BaseMetric):
                 "free": float(disk.free) / 1_000_000_000,
                 "percent": disk.percent,
             }
-
-            return False
         except Exception as ex:
             raise Linux2MqttMetricsException(
                 "Could not gather and publish disk usage data"
             ) from ex
+        else:
+            return False
 
 
 class NetworkMetricThread(BaseMetricThread):
@@ -649,11 +650,12 @@ class TempMetrics(BaseMetric):
                 "high": thermal_zone.high,
                 "critical": thermal_zone.critical,
             }
-            return False
         except Exception as ex:
             raise Linux2MqttMetricsException(
                 "Could not gather and publish thermal zone data"
             ) from ex
+        else:
+            return False
 
 
 class FanSpeedMetrics(BaseMetric):
@@ -720,8 +722,9 @@ class FanSpeedMetrics(BaseMetric):
                 "current": fan.current,
                 "unit": "rpm",
             }
-            return False
         except Exception as ex:
             raise Linux2MqttMetricsException(
                 "Could not gather and publish fan speed data"
             ) from ex
+        else:
+            return False

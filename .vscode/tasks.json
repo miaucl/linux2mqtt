@@ -6,7 +6,7 @@
     {
       "label": "Python: Build linux2mqtt package",
       "type": "shell",
-      "command": "pip install -e .",
+      "command": "scripts/run-in-env.sh pip install -e .",
       "problemMatcher": [],
       "group": {
         "kind": "build"

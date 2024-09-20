@@ -1,7 +1,6 @@
 """linux2mqtt helpers."""
 
 import re
-from typing import Union
 
 from .type_definitions import LinuxEntry
 
@@ -23,7 +22,7 @@ def sanitize(val: str) -> str:
     return re.sub(r"[^a-zA-Z0-9_-]", "_", val.lower())
 
 
-def clean_for_discovery(val: LinuxEntry) -> dict[str, Union[str, int, float, object]]:
+def clean_for_discovery(val: LinuxEntry) -> dict[str, str | int | float | object]:
     """Cleanup a typed dict for home assistant discovery, which is quite picky and does not like empty of None values.
 
     Parameters
@@ -41,5 +40,5 @@ def clean_for_discovery(val: LinuxEntry) -> dict[str, Union[str, int, float, obj
     return {
         k: v
         for k, v in dict(val).items()
-        if isinstance(v, (str, int, float, object)) and v not in (None, "")
+        if isinstance(v, str | int | float | object) and v not in (None, "")
     }
