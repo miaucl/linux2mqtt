@@ -9,6 +9,6 @@ mypy
 pydantic
 pre-commit>=3.6.1
 python-dotenv>=1.0.1
-ruff~=0.7
+ruff~=0.8
 mkdocs-material==9.5.46
 mkdocstrings[python]==0.27.0
