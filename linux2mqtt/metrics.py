@@ -623,11 +623,11 @@ class NetConnectionMetrics(BaseMetric):
         """
         try:
             st = psutil.net_connections()
-            listening_ports = [
+            listening_ports = set([
                 x.laddr.port
                 for x in st
                 if x.status == "LISTEN" and x.laddr.ip in ("0.0.0.0", "::")
-            ]
+            ])
 
             self.polled_result = {
                 "count": len([x for x in st if x.status == "ESTABLISHED"]),
@@ -649,7 +649,7 @@ class NetConnectionMetrics(BaseMetric):
                         and x.laddr.ip != "::1"
                     ]
                 ),
-                "listening_ports": listening_ports,
+                "listening_ports": list(listening_ports),
                 "outbound": [
                     f"{x.raddr.ip}:{x.raddr.port}"
                     for x in st
