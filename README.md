@@ -73,7 +73,7 @@ By default, `linux2mqtt` will publish system metrics every 30 seconds. This can 
 
 ### Network Connections
 
-Network connections are available with a single `--connections` flag. Adding this will poll your system for metrics like:
+Network connections are available with a single `--connections` flag, providing optional interval value (default `10` seconds). Adding this will poll your system for metrics like:
 * How many total IP connections there are
 * How many of those are IPv4
 * How many of those are IPv6
