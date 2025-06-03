@@ -9,6 +9,7 @@ from typing import Any, Self
 import jsons
 import numpy as np
 import psutil
+from psutil._common import addr
 
 from .const import (
     MAX_CPU_INTERVAL,
@@ -630,13 +631,13 @@ class NetConnectionMetrics(BaseMetric):
         """
         try:
             st = psutil.net_connections()
-            listening_ports = set(
-                [
-                    x.laddr.port
-                    for x in st
-                    if x.status == "LISTEN" and x.laddr.ip in ("0.0.0.0", "::")
-                ]
-            )
+            listening_ports = {
+                x.laddr.port
+                for x in st
+                if x.status == "LISTEN"
+                and isinstance(x.laddr, addr)
+                and x.laddr.ip in ("0.0.0.0", "::")
+            }
 
             self.polled_result = {
                 "count": len([x for x in st if x.status == "ESTABLISHED"]),
@@ -646,6 +647,7 @@ class NetConnectionMetrics(BaseMetric):
                         for x in st
                         if x.family.value == 2
                         and x.status == "ESTABLISHED"
+                        and isinstance(x.laddr, addr)
                         and not x.laddr.ip.startswith("127.")
                     ]
                 ),
@@ -655,6 +657,7 @@ class NetConnectionMetrics(BaseMetric):
                         for x in st
                         if x.family.value == 10
                         and x.status == "ESTABLISHED"
+                        and isinstance(x.laddr, addr)
                         and x.laddr.ip != "::1"
                     ]
                 ),
@@ -663,13 +666,18 @@ class NetConnectionMetrics(BaseMetric):
                     f"{x.raddr.ip}:{x.raddr.port}"
                     for x in st
                     if x.status == "ESTABLISHED"
+                    and isinstance(x.laddr, addr)
+                    and isinstance(x.raddr, addr)
                     and x.laddr.ip in self.ips
                     and x.raddr.ip not in ("::1", "127.0.0.1")
                 ],
                 "inbound": [
                     f"{x.raddr.ip}:{x.raddr.port} -> {x.laddr.ip}:{x.laddr.port}"
                     for x in st
-                    if x.status == "ESTABLISHED" and x.laddr.port in listening_ports
+                    if x.status == "ESTABLISHED"
+                    and isinstance(x.laddr, addr)
+                    and isinstance(x.raddr, addr)
+                    and x.laddr.port in listening_ports
                 ],
             }
         except Exception as ex:
