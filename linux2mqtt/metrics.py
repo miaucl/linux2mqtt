@@ -587,15 +587,23 @@ class NetConnectionMetrics(BaseMetric):
     _name = "Network Connections"
     icon = "mdi:ip-network"
     device_class = ""
-    unit_of_measurement = "connections"
+    unit_of_measurement = ""
     state_field = "count"
 
-    def __init__(self) -> None:
-        """Extract local IPs for evaluation during poll."""
+    def __init__(self, interval: int) -> None:
+        """Extract local IPs for evaluation during poll.
+
+        Parameters
+        ----------
+
+        interval
+            The interval to gather data over
+
+        """
         super().__init__()
         interface_addrs = psutil.net_if_addrs()
         self.ips = set()
-        self.interval = 10
+        self.interval = interval
 
         for snicaddrs in interface_addrs.values():
             for snicaddr in snicaddrs:

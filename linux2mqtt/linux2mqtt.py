@@ -20,9 +20,12 @@ from .const import (
     DEFAULT_CPU_INTERVAL,
     DEFAULT_INTERVAL,
     DEFAULT_NET_INTERVAL,
+    DEFAULT_CONNECTIONS_INTERVAL,
     MAX_CPU_INTERVAL,
     MAX_INTERVAL,
     MAX_NET_INTERVAL,
+    MIN_CONNECTIONS_INTERVAL,
+    MAX_CONNECTIONS_INTERVAL,
     MAX_QUEUE_SIZE,
     MIN_CPU_INTERVAL,
     MIN_INTERVAL,
@@ -555,7 +558,14 @@ def main() -> None:
         metavar="NIC",
     )
     parser.add_argument(
-        "--connections", help="Publish network connections", action="store_true"
+        "--connections",
+        help="Publish network connections",
+        type=int,
+        nargs="?",
+        const=DEFAULT_CONNECTIONS_INTERVAL,
+        default=None,
+        metavar="INTERVAL",
+        choices=range(MIN_CONNECTIONS_INTERVAL, MAX_CONNECTIONS_INTERVAL),
     )
     parser.add_argument(
         "--temp", help="Publish temperature of thermal zones", action="store_true"
@@ -619,7 +629,7 @@ def main() -> None:
             stats.add_metric(du)
 
     if args.connections:
-        nc = NetConnectionMetrics()
+        nc = NetConnectionMetrics(interval=args.connections)
         stats.add_metric(nc)
 
     if args.net:
