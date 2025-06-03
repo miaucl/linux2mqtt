@@ -6,7 +6,7 @@ import threading
 import time
 from typing import Any, Self
 
-import jsons  # type: ignore[import-untyped]
+import jsons
 import numpy as np
 import psutil
 
@@ -57,7 +57,7 @@ class BaseMetric:
 
     ha_sensor_type: SensorType = "sensor"
 
-    polled_result: dict[str, str | int | float | None] | None
+    polled_result: dict[str, str | int | float | list[str | int] | None] | None
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Initialize base class."""
@@ -579,6 +579,96 @@ class NetworkMetrics(BaseMetric):
         th.daemon = True
         th.start()
         return True  # Expect a deferred result
+
+
+class NetConnectionMetrics(BaseMetric):
+    """Network connections metric."""
+
+    _name = "Network Connections"
+    icon = "mdi:ip-network"
+    device_class = ""
+    unit_of_measurement = "connections"
+    state_field = "count"
+
+    def __init__(self) -> None:
+        """Extract local IPs for evaluation during poll."""
+        super().__init__()
+        interface_addrs = psutil.net_if_addrs()
+        self.ips = set()
+        self.interval = 10
+
+        for snicaddrs in interface_addrs.values():
+            for snicaddr in snicaddrs:
+                if snicaddr.family.value in (2, 10):
+                    self.ips.add(snicaddr.address)
+
+    def poll(self, result_queue: Queue[Self]) -> bool:
+        """Poll new data for the network connection metrics.
+
+        Parameters
+        ----------
+        result_queue
+            (Unused)
+
+        Returns
+        -------
+        bool
+            True as the data is readily available
+
+        Raises
+        ------
+        Linux2MqttMetricsException
+            network connection information could not be gathered or prepared for publishing
+
+        """
+        try:
+            st = psutil.net_connections()
+            listening_ports = [
+                x.laddr.port
+                for x in st
+                if x.status == "LISTEN" and x.laddr.ip in ("0.0.0.0", "::")
+            ]
+
+            self.polled_result = {
+                "count": len([x for x in st if x.status == "ESTABLISHED"]),
+                "ipv4": len(
+                    [
+                        x
+                        for x in st
+                        if x.family.value == 2
+                        and x.status == "ESTABLISHED"
+                        and not x.laddr.ip.startswith("127.")
+                    ]
+                ),
+                "ipv6": len(
+                    [
+                        x
+                        for x in st
+                        if x.family.value == 10
+                        and x.status == "ESTABLISHED"
+                        and x.laddr.ip != "::1"
+                    ]
+                ),
+                "listening_ports": listening_ports,
+                "outbound": [
+                    f"{x.raddr.ip}:{x.raddr.port}"
+                    for x in st
+                    if x.status == "ESTABLISHED"
+                    and x.laddr.ip in self.ips
+                    and x.raddr.ip not in ("::1", "127.0.0.1")
+                ],
+                "inbound": [
+                    f"{x.raddr.ip}:{x.raddr.port} -> {x.laddr.ip}:{x.laddr.port}"
+                    for x in st
+                    if x.status == "ESTABLISHED" and x.laddr.port in listening_ports
+                ],
+            }
+        except Exception as ex:
+            raise Linux2MqttMetricsException(
+                "Could not gather and publish net connections"
+            ) from ex
+        else:
+            return False
 
 
 class TempMetrics(BaseMetric):

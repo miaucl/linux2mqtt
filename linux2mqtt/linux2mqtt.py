@@ -39,6 +39,7 @@ from .metrics import (
     CPUMetrics,
     DiskUsageMetrics,
     FanSpeedMetrics,
+    NetConnectionMetrics,
     NetworkMetrics,
     TempMetrics,
     VirtualMemoryMetrics,
@@ -554,6 +555,9 @@ def main() -> None:
         metavar="NIC",
     )
     parser.add_argument(
+        "--connections", help="Publish network connections", action="store_true"
+    )
+    parser.add_argument(
         "--temp", help="Publish temperature of thermal zones", action="store_true"
     )
     parser.add_argument("--fan", help="Publish fan speeds", action="store_true")
@@ -613,6 +617,10 @@ def main() -> None:
         for mountpoint in args.du:
             du = DiskUsageMetrics(mountpoint=mountpoint)
             stats.add_metric(du)
+
+    if args.connections:
+        nc = NetConnectionMetrics()
+        stats.add_metric(nc)
 
     if args.net:
         for nic in args.net:
