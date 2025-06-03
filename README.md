@@ -74,12 +74,12 @@ By default, `linux2mqtt` will publish system metrics every 30 seconds. This can 
 ### Network Connections
 
 Network connections are available with a single `--connections` flag. Adding this will poll your system for metrics like:
-- How many total IP connections there are
-- How many of those are IPv4
-- How many of those are IPv6
-- Which ports is the system currently listening on
-- IP and port of any outbound connections (ones your system initiate to a remote device)
-- IP and port of any inbound connections (ones another device is making of your system, along with the IP and port they're connecting to)
+* How many total IP connections there are
+* How many of those are IPv4
+* How many of those are IPv6
+* Which ports is the system currently listening on
+* IP and port of any outbound connections (ones your system initiate to a remote device)
+* IP and port of any inbound connections (ones another device is making of your system, along with the IP and port they're connecting to)
 
 These metrics give you a better understanding of the network traffic interacting with your system.
 

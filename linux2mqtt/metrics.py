@@ -595,7 +595,6 @@ class NetConnectionMetrics(BaseMetric):
 
         Parameters
         ----------
-
         interval
             The interval to gather data over
 
@@ -631,11 +630,13 @@ class NetConnectionMetrics(BaseMetric):
         """
         try:
             st = psutil.net_connections()
-            listening_ports = set([
-                x.laddr.port
-                for x in st
-                if x.status == "LISTEN" and x.laddr.ip in ("0.0.0.0", "::")
-            ])
+            listening_ports = set(
+                [
+                    x.laddr.port
+                    for x in st
+                    if x.status == "LISTEN" and x.laddr.ip in ("0.0.0.0", "::")
+                ]
+            )
 
             self.polled_result = {
                 "count": len([x for x in st if x.status == "ESTABLISHED"]),
