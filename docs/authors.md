@@ -6,7 +6,7 @@
   
 ## Contributors
 
-* Adam Cooper [@GenericStudent](ttps://github.com/GenericStudent)
+* Adam Cooper [@GenericStudent](https://github.com/GenericStudent)
 
 Why not come join us and contribute?
 
