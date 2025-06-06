@@ -6,7 +6,9 @@
   
 ## Contributors
 
-None yet. Why not be the first?
+* Adam Cooper [@GenericStudent](https://github.com/GenericStudent)
+
+Why not come join us and contribute?
 
 ## Further Credits
 

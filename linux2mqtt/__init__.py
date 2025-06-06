@@ -1,6 +1,6 @@
 """linux2mqtt package."""
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 
 from .const import (
     DEFAULT_CONFIG,
@@ -37,6 +37,7 @@ from .metrics import (
     CPUMetricThread,
     DiskUsageMetrics,
     FanSpeedMetrics,
+    NetConnectionMetrics,
     NetworkMetrics,
     NetworkMetricThread,
     TempMetrics,
@@ -79,6 +80,7 @@ __all__ = [
     "CPUMetrics",
     "CPUMetricThread",
     "VirtualMemoryMetrics",
+    "NetConnectionMetrics",
     "NetworkMetrics",
     "NetworkMetricThread",
     "DiskUsageMetrics",

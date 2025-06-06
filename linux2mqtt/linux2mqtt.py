@@ -17,13 +17,16 @@ import psutil
 
 from . import __version__
 from .const import (
+    DEFAULT_CONNECTIONS_INTERVAL,
     DEFAULT_CPU_INTERVAL,
     DEFAULT_INTERVAL,
     DEFAULT_NET_INTERVAL,
+    MAX_CONNECTIONS_INTERVAL,
     MAX_CPU_INTERVAL,
     MAX_INTERVAL,
     MAX_NET_INTERVAL,
     MAX_QUEUE_SIZE,
+    MIN_CONNECTIONS_INTERVAL,
     MIN_CPU_INTERVAL,
     MIN_INTERVAL,
     MIN_NET_INTERVAL,
@@ -39,6 +42,7 @@ from .metrics import (
     CPUMetrics,
     DiskUsageMetrics,
     FanSpeedMetrics,
+    NetConnectionMetrics,
     NetworkMetrics,
     TempMetrics,
     VirtualMemoryMetrics,
@@ -554,6 +558,16 @@ def main() -> None:
         metavar="NIC",
     )
     parser.add_argument(
+        "--connections",
+        help="Publish network connections",
+        type=int,
+        nargs="?",
+        const=DEFAULT_CONNECTIONS_INTERVAL,
+        default=None,
+        metavar="INTERVAL",
+        choices=range(MIN_CONNECTIONS_INTERVAL, MAX_CONNECTIONS_INTERVAL),
+    )
+    parser.add_argument(
         "--temp", help="Publish temperature of thermal zones", action="store_true"
     )
     parser.add_argument("--fan", help="Publish fan speeds", action="store_true")
@@ -613,6 +627,10 @@ def main() -> None:
         for mountpoint in args.du:
             du = DiskUsageMetrics(mountpoint=mountpoint)
             stats.add_metric(du)
+
+    if args.connections:
+        nc = NetConnectionMetrics(interval=args.connections)
+        stats.add_metric(nc)
 
     if args.net:
         for nic in args.net:
