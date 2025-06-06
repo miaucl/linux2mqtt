@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 1.3.0
+
+* Add monitoring of connections (ipv4, ipv6, ingoing, outgoing)
+
 ## 1.2.0
 
 * Update version package identifier and bump setuptools
