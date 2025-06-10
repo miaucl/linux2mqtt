@@ -580,13 +580,6 @@ def main() -> None:
         "--temp", help="Publish temperature of thermal zones", action="store_true"
     )
     parser.add_argument("--fan", help="Publish fan speeds", action="store_true")
-    # TODO: What does const do? I'm seeing it polling every 30 seconds which is too often!
-    # TODO: I believe I misunderstood the interval config option
-    # for each metric, having Debian run `apt update` every 30
-    # seconds (publish interval above) is far too often!
-    # Its my desire that this interval means polling THIS metric every
-    # args.packages seconds. The command doesn't require running for
-    # args.packages seconds!
     parser.add_argument(
         "--packages",
         help="Publish package updates if available",
