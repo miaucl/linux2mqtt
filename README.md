@@ -106,6 +106,14 @@ This will publish network throughput information about Server1's `eth0` interfac
 
 `linux2mqtt --name Server1 -vvvvv --cpu=60 --vm --fan`
 
+### OS Package Updates
+
+`linux2mqtt` can iterate common package managers (currently `Apk` (Alpine), `Apt` (Debian, Ubuntu), `yum` (Centos, Rocky, Fedora)) to enquire about available updates to operating system packages. This provides the number of updates available on a given box and also a property of each package name.
+
+Enabling this option will cause increased network traffic in order to update package databases.
+
+`linux2mqtt --name Server1 -vvvvv --packages=`
+
 ## Compatibility
 
 `linux2mqtt` has been tested to work on CentOS, Ubuntu, and Debian (Raspberry Pi), even tough some features are not available everywhere. **Python 3.10 (or above) is recommended.**

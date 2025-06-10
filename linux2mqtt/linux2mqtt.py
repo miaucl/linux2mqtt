@@ -4,6 +4,7 @@
 import argparse
 import json
 import logging
+from os import getenv
 import platform
 from queue import Empty, Queue
 import signal
@@ -21,15 +22,18 @@ from .const import (
     DEFAULT_CPU_INTERVAL,
     DEFAULT_INTERVAL,
     DEFAULT_NET_INTERVAL,
+    DEFAULT_PACKAGE_INTERVAL,
     MAX_CONNECTIONS_INTERVAL,
     MAX_CPU_INTERVAL,
     MAX_INTERVAL,
     MAX_NET_INTERVAL,
+    MAX_PACKAGE_INTERVAL,
     MAX_QUEUE_SIZE,
     MIN_CONNECTIONS_INTERVAL,
     MIN_CPU_INTERVAL,
     MIN_INTERVAL,
     MIN_NET_INTERVAL,
+    MIN_PACKAGE_INTERVAL,
     MQTT_CLIENT_ID_DEFAULT,
     MQTT_PORT_DEFAULT,
     MQTT_QOS_DEFAULT,
@@ -44,6 +48,7 @@ from .metrics import (
     FanSpeedMetrics,
     NetConnectionMetrics,
     NetworkMetrics,
+    PackageUpdateMetrics,
     TempMetrics,
     VirtualMemoryMetrics,
 )
@@ -423,14 +428,18 @@ class Linux2Mqtt:
             time.sleep(1)
 
         self._create_discovery_topics()
+        first_loop = True
         while True:
             try:
-                x = 0
-                while x < self.cfg["interval"]:
-                    # Check the queue for deferred results one/sec
-                    time.sleep(1)
-                    self._check_queue()
-                    x += 1
+                if first_loop:
+                    first_loop = False
+                else:
+                    x = 0
+                    while x < self.cfg["interval"]:
+                        # Check the queue for deferred results one/sec
+                        time.sleep(1)
+                        self._check_queue()
+                        x += 1
                 for metric in self.metrics:
                     is_deferred = metric.poll(result_queue=self.deferred_metrics_queue)
                     if not is_deferred:
@@ -571,6 +580,22 @@ def main() -> None:
         "--temp", help="Publish temperature of thermal zones", action="store_true"
     )
     parser.add_argument("--fan", help="Publish fan speeds", action="store_true")
+    # TODO: What does const do? I'm seeing it polling every 30 seconds which is too often!
+    # TODO: I believe I misunderstood the interval config option
+    # for each metric, having Debian run `apt update` every 30
+    # seconds (publish interval above) is far too often!
+    # Its my desire that this interval means polling THIS metric every
+    # args.packages seconds. The command doesn't require running for
+    # args.packages seconds!
+    parser.add_argument(
+        "--packages",
+        help="Publish package updates if available",
+        type=int,
+        nargs="?",
+        default=DEFAULT_PACKAGE_INTERVAL,
+        metavar="INTERVAL",
+        choices=range(MIN_PACKAGE_INTERVAL, MAX_PACKAGE_INTERVAL),
+    )
 
     try:
         args = parser.parse_args()
@@ -657,7 +682,21 @@ def main() -> None:
                 fm = FanSpeedMetrics(device=device, fan=fan.label)
                 stats.add_metric(fm)
 
-    if not (args.vm or args.cpu or args.du or args.net or args.temp or args.fan):
+    if args.packages:
+        package_updates = PackageUpdateMetrics(
+            update_interval=args.packages, is_privileged=getenv("EUID") == "0"
+        )
+        stats.add_metric(package_updates)
+
+    if not (
+        args.vm
+        or args.cpu
+        or args.du
+        or args.net
+        or args.temp
+        or args.fan
+        or args.packages
+    ):
         main_logger.warning("No metrics specified. Nothing will be published.")
 
     stats.connect()

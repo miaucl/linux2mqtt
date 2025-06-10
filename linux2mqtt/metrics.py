@@ -21,8 +21,10 @@ from .exceptions import (
     Linux2MqttConfigException,
     Linux2MqttException,
     Linux2MqttMetricsException,
+    NoPackageManagerFound,
 )
 from .helpers import sanitize
+from .os_packages import PackageManager, get_package_manager
 from .type_definitions import LinuxDeviceEntry, LinuxEntry, SensorType
 
 metric_logger = logging.getLogger("metrics")
@@ -58,7 +60,9 @@ class BaseMetric:
 
     ha_sensor_type: SensorType = "sensor"
 
-    polled_result: dict[str, str | int | float | list[str | int] | None] | None
+    polled_result: (
+        dict[str, str | int | float | list[str] | list[str | int] | None] | None
+    )
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Initialize base class."""
@@ -832,6 +836,87 @@ class FanSpeedMetrics(BaseMetric):
         except Exception as ex:
             raise Linux2MqttMetricsException(
                 "Could not gather and publish fan speed data"
+            ) from ex
+        else:
+            return False
+
+
+class PackageUpdateMetrics(BaseMetric):
+    """Package update metrics.
+
+    Attributes
+    ----------
+    interval
+        The interval to gather data over
+
+    """
+
+    icon = "mdi:package-up"
+    device_class = ""
+    unit_of_measurement = ""
+    state_field = "count"
+
+    _name = "Package Updates"
+    package_manager: PackageManager
+
+    def __init__(self, update_interval: int, is_privileged: bool):
+        """Initialize the package update metric.
+
+        Parameters
+        ----------
+        update_interval
+            The interval to gather data over
+
+        is_privileged
+            If the invoking user has effective user ID 0 (root)
+
+        Raises
+        ------
+        ValueError
+            Bad interval defined
+
+        Linux2MqttException
+            An acceptable package manager has not been found
+
+        """
+        super().__init__()
+
+        try:
+            self.package_manager = get_package_manager(update_interval, is_privileged)
+        except NoPackageManagerFound as ex:
+            raise Linux2MqttException(
+                "Failed to find a suitable package manager (apt, yum, etc)"
+            ) from ex
+
+    def poll(self, result_queue: Queue[Self]) -> bool:
+        """Poll new data for the package updates metric.
+
+        Parameters
+        ----------
+        result_queue
+            (Unused)
+
+        Returns
+        -------
+        bool
+            True as the data is readily available
+
+        Raises
+        ------
+        Linux2MqttException
+            General exception
+
+        """
+        try:
+            self.package_manager.update_if_needed()
+            updates_available = self.package_manager.get_available_updates()
+            self.polled_result = {
+                "count": len(updates_available),
+                "packages": updates_available,
+            }
+        except Exception as ex:
+            raise Linux2MqttMetricsException(
+                "Could not gather and publish package update data"
             ) from ex
         else:
             return False
