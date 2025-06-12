@@ -885,7 +885,7 @@ class PackageUpdateMetrics(BaseMetric):
             self.package_manager = get_package_manager(update_interval, is_privileged)
         except NoPackageManagerFound as ex:
             raise Linux2MqttException(
-                "Failed to find a suitable package manager (apt, yum, etc)"
+                "Failed to find a suitable package manager. Currently supported are: apt, apk, yum"
             ) from ex
 
     def poll(self, result_queue: Queue[Self]) -> bool:
