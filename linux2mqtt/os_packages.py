@@ -1,10 +1,11 @@
+from subprocess import DEVNULL, PIPE, STDOUT, Popen, run
+from time import time
+
 from .exceptions import (
     Linux2MqttException,
     NoPackageManagerFound,
-    PackageManagerException)
-
-from time import time
-from subprocess import run, STDOUT, PIPE, Popen, DEVNULL
+    PackageManagerException,
+)
 
 
 class PackageManager:
@@ -35,7 +36,13 @@ class PackageManager:
         self.last_updated = None
         self.update_interval = update_interval
         self.is_privileged = is_privileged
-        self.has_sudo = self.is_sudo_present()
+
+        # If we're already privileged, don't bother
+        # checking for sudo
+        if is_privileged:
+            self.has_sudo = False
+        else:
+            self.has_sudo = self.is_sudo_present()
 
     def _update(self) -> None:
         """Package manager specific update function."""
@@ -43,20 +50,23 @@ class PackageManager:
 
     def update_if_needed(self) -> None:
         """Run update commands if enough time has elapsed."""
-        if self.last_updated is None or (time() - self.last_updated) >= self.update_interval:
+        if (
+            self.last_updated is None
+            or (time() - self.last_updated) >= self.update_interval
+        ):
             self.last_updated = time()
             self._update()
 
     def is_sudo_present(self) -> bool:
         """Check if this system has sudo utility present."""
         try:
-            result = run(["sudo", "-h"], stdout=DEVNULL, stderr=STDOUT)
+            result = run(["sudo", "-h"], stdout=DEVNULL, stderr=STDOUT, check=False)
             return result.returncode == 0
         except FileNotFoundError:
             return False
 
     def run_privileged_command(self, args: list[str], required: bool) -> bool:
-        # We're already effectively root        
+        # We're already effectively root
         if not self.is_privileged:
             if self.has_sudo:
                 # If we have access to sudo, run it non interactively
@@ -66,16 +76,18 @@ class PackageManager:
             else:
                 if required:
                     raise PackageManagerException(
-                        "Required privileged command but lack privilege")
+                        "Required privileged command but lack privilege"
+                    )
 
                 return False
 
         # Update the cache to detect available updates
-        res = run(args, stdout=DEVNULL, stderr=STDOUT)
+        res = run(args, stdout=DEVNULL, stderr=STDOUT, check=False)
 
         if res.returncode != 0 and required:
             raise PackageManagerException(
-                "Required privileged command but lack privilege")
+                "Required privileged command but lack privilege"
+            )
 
         return res.returncode == 0
 
@@ -84,7 +96,7 @@ class PackageManager:
         """System check if a given package manager is available.
 
         Returns
-        ---
+        -------
         bool
             Showing if this specific type of Package Manager is
             available on this system
@@ -96,7 +108,7 @@ class PackageManager:
         """Gather list of packages with an update available.
 
         Returns
-        ---
+        -------
         list[str]
             Each package name which has an update available
 
@@ -111,7 +123,7 @@ class Apk(PackageManager):
     def is_available() -> bool:
         """Check if APK is available on this system."""
         try:
-            result = run(["apk", "version"], stdout=DEVNULL, stderr=STDOUT)
+            result = run(["apk", "version"], stdout=DEVNULL, stderr=STDOUT, check=False)
             return result.returncode == 0
         except FileNotFoundError:
             return False
@@ -123,11 +135,18 @@ class Apk(PackageManager):
     def get_available_updates(self) -> list[str]:
         """Get packages available for update in APK."""
         self.updates = []
-        with Popen(["apk", "upgrade", "--no-interactive", "--simulate"], stdout=PIPE, stderr=DEVNULL, text=True) as proc:
+        with Popen(
+            ["apk", "upgrade", "--no-interactive", "--simulate"],
+            stdout=PIPE,
+            stderr=DEVNULL,
+            text=True,
+        ) as proc:
             stdout, stderr = proc.communicate(timeout=30)
 
             if proc.returncode != 0:
-                raise PackageManagerException(f"Non zero simulated apk upgrade: {proc.returncode}: '{stderr}'")
+                raise PackageManagerException(
+                    f"Non zero simulated apk upgrade: {proc.returncode}: '{stderr}'"
+                )
 
             for line in stdout.splitlines():
                 line = line.strip()
@@ -149,14 +168,15 @@ class Apk(PackageManager):
 
 
 class Apt(PackageManager):
-
     @staticmethod
     def is_available() -> bool:
         """Check if APT is available on this system."""
         try:
             # Can't even rely on `apt --version` being consistent,
             # mint has `apt version` instead.
-            result = run(["apt", "show", "apt"], stdout=DEVNULL, stderr=STDOUT)
+            result = run(
+                ["apt", "show", "apt"], stdout=DEVNULL, stderr=STDOUT, check=False
+            )
             return result.returncode == 0
         except FileNotFoundError:
             return False
@@ -169,7 +189,9 @@ class Apt(PackageManager):
     def get_available_updates(self) -> list[str]:
         """Get packages available for update in APT."""
         self.updates = []
-        with Popen(["apt", "list", "--upgradeable"], stdout=PIPE, stderr=STDOUT, text=True) as proc:
+        with Popen(
+            ["apt", "list", "--upgradeable"], stdout=PIPE, stderr=STDOUT, text=True
+        ) as proc:
             stdout, _ = proc.communicate(timeout=30)
 
             if proc.returncode != 0:
@@ -197,12 +219,13 @@ class Apt(PackageManager):
 
 
 class Yum(PackageManager):
-
     @staticmethod
     def is_available() -> bool:
         """Check if YUM is available on this system."""
         try:
-            result = run(["yum", "--version"], stdout=DEVNULL, stderr=STDOUT)
+            result = run(
+                ["yum", "--version"], stdout=DEVNULL, stderr=STDOUT, check=False
+            )
             return result.returncode == 0
         except FileNotFoundError:
             return False
@@ -223,7 +246,9 @@ class Yum(PackageManager):
             stdout, stderr = proc.communicate(timeout=30)
 
             if proc.returncode != 0:
-                raise PackageManagerException(f"Non zero yum list: {proc.returncode}: {stderr}")
+                raise PackageManagerException(
+                    f"Non zero yum list: {proc.returncode}: {stderr}"
+                )
 
             for line in stdout.splitlines():
                 line = line.strip()
@@ -250,17 +275,21 @@ def get_package_manager(update_interval: int, is_privileged: bool) -> PackageMan
     """Determine which package manager is available.
 
     Returns
-    ---
+    -------
     PackageManager
         The specific package manager for this system
 
     Raises
-    ---
+    ------
     NoPackageManagerFound
         If no available package manager is found
 
     """
-    for manager in (Apk, Apt, Yum, ):
+    for manager in (
+        Apk,
+        Apt,
+        Yum,
+    ):
         if manager.is_available():
             return manager(update_interval, is_privileged)
 
