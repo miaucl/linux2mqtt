@@ -846,8 +846,8 @@ class PackageUpdateMetrics(BaseMetric):
 
     Attributes
     ----------
-    interval
-        The interval to gather data over
+    package_manager
+        The system specific interface for a package manager
 
     """
 
@@ -865,7 +865,7 @@ class PackageUpdateMetrics(BaseMetric):
         Parameters
         ----------
         update_interval
-            The interval to gather data over
+            The interval between invokes of update (if applicable)
 
         is_privileged
             If the invoking user has effective user ID 0 (root)
