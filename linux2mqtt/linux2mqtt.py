@@ -428,18 +428,8 @@ class Linux2Mqtt:
             time.sleep(1)
 
         self._create_discovery_topics()
-        first_loop = True
         while True:
             try:
-                if first_loop:
-                    first_loop = False
-                else:
-                    x = 0
-                    while x < self.cfg["interval"]:
-                        # Check the queue for deferred results one/sec
-                        time.sleep(1)
-                        self._check_queue()
-                        x += 1
                 for metric in self.metrics:
                     is_deferred = metric.poll(result_queue=self.deferred_metrics_queue)
                     if not is_deferred:
@@ -451,6 +441,12 @@ class Linux2Mqtt:
                     main_logger.warning(
                         "Do not raise due to raise_known_exceptions=False: %s", str(ex)
                     )
+            x = 0
+            while x < self.cfg["interval"]:
+                # Check the queue for deferred results one/sec
+                time.sleep(1)
+                self._check_queue()
+                x += 1
 
 
 def main() -> None:
@@ -683,6 +679,7 @@ def main() -> None:
 
     if not (
         args.vm
+        or args.connections
         or args.cpu
         or args.du
         or args.net
