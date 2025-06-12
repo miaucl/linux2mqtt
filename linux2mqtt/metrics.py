@@ -841,6 +841,57 @@ class FanSpeedMetrics(BaseMetric):
             return False
 
 
+class PackageUpdateMetricThread(BaseMetricThread):
+    """Package Update metric thread."""
+
+    def __init__(
+        self,
+        result_queue: Queue[BaseMetric],
+        metric: BaseMetric,
+        package_manager: PackageManager,
+    ):
+        """Initialize the package update thread.
+
+        Parameters
+        ----------
+        result_queue
+            The queue to put the metric into once the data is gathered
+        metric
+            The package update metric to gather data for
+        package_manager
+            The system specific interface for a package manager
+
+        """
+        threading.Thread.__init__(self)
+        self.result_queue = result_queue
+        self.metric = metric
+        self.package_manager = package_manager
+
+    def run(self) -> None:
+        """Run the package update thread.
+
+        Once data is gathered, it is put into the queue and the thread exits.
+
+        Raises
+        ------
+        Linux2MqttMetricsException
+            cpu information could not be gathered or prepared for publishing
+
+        """
+        try:
+            self.package_manager.update_if_needed()
+            updates_available = self.package_manager.get_available_updates()
+            self.metric.polled_result = {
+                "count": len(updates_available),
+                "packages": updates_available,
+            }
+            self.result_queue.put(self.metric)
+        except Exception as ex:
+            raise Linux2MqttMetricsException(
+                "Could not gather and publish package update data"
+            ) from ex
+
+
 class PackageUpdateMetrics(BaseMetric):
     """Package update metrics.
 
@@ -888,18 +939,18 @@ class PackageUpdateMetrics(BaseMetric):
                 "Failed to find a suitable package manager. Currently supported are: apt, apk, yum"
             ) from ex
 
-    def poll(self, result_queue: Queue[Self]) -> bool:
+    def poll(self, result_queue: Queue[BaseMetric]) -> bool:
         """Poll new data for the package updates metric.
 
         Parameters
         ----------
         result_queue
-            (Unused)
+            The queue where to post new data once gathered
 
         Returns
         -------
         bool
-            True as the data is readily available
+            True as the data is gathered lazily
 
         Raises
         ------
@@ -908,15 +959,17 @@ class PackageUpdateMetrics(BaseMetric):
 
         """
         try:
-            self.package_manager.update_if_needed()
-            updates_available = self.package_manager.get_available_updates()
-            self.polled_result = {
-                "count": len(updates_available),
-                "packages": updates_available,
-            }
-        except Exception as ex:
-            raise Linux2MqttMetricsException(
-                "Could not gather and publish package update data"
+            assert result_queue
+        except ReferenceError as ex:
+            raise Linux2MqttException(
+                "Cannot start cpu metric due to missing result_queue"
             ) from ex
-        else:
-            return False
+        self.result_queue = result_queue
+        th = PackageUpdateMetricThread(
+            result_queue=result_queue,
+            metric=self,
+            package_manager=self.package_manager,
+        )
+        th.daemon = True
+        th.start()
+        return True  # Expect a deferred result
