@@ -4,7 +4,7 @@
 import argparse
 import json
 import logging
-from os import getenv
+from os import geteuid
 import platform
 from queue import Empty, Queue
 import signal
@@ -673,7 +673,7 @@ def main() -> None:
 
     if args.packages:
         package_updates = PackageUpdateMetrics(
-            update_interval=args.packages, is_privileged=getenv("EUID") == "0"
+            update_interval=args.packages, is_privileged=geteuid() == 0
         )
         stats.add_metric(package_updates)
 
