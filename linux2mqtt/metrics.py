@@ -875,7 +875,7 @@ class PackageUpdateMetricThread(BaseMetricThread):
         Raises
         ------
         Linux2MqttMetricsException
-            cpu information could not be gathered or prepared for publishing
+            package update information could not be gathered or prepared for publishing
 
         """
         try:
@@ -962,7 +962,7 @@ class PackageUpdateMetrics(BaseMetric):
             assert result_queue
         except ReferenceError as ex:
             raise Linux2MqttException(
-                "Cannot start cpu metric due to missing result_queue"
+                "Cannot start package update metric due to missing result_queue"
             ) from ex
         self.result_queue = result_queue
         th = PackageUpdateMetricThread(
