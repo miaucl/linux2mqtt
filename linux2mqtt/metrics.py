@@ -60,9 +60,7 @@ class BaseMetric:
 
     ha_sensor_type: SensorType = "sensor"
 
-    polled_result: (
-        dict[str, str | int | float | list[str] | list[str | int] | None] | None
-    )
+    polled_result: dict[str, str | int | float | list[str] | list[int] | None] | None
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Initialize base class."""
