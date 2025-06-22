@@ -24,7 +24,7 @@ from .exceptions import (
     NoPackageManagerFound,
 )
 from .helpers import sanitize
-from .os_packages import PackageManager, get_package_manager
+from .package_manager import PackageManager, get_package_manager
 from .type_definitions import LinuxDeviceEntry, LinuxEntry, SensorType
 
 metric_logger = logging.getLogger("metrics")

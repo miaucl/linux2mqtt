@@ -1,3 +1,5 @@
+"""Package managers."""
+
 from subprocess import DEVNULL, PIPE, STDOUT, Popen, run
 from time import time
 
@@ -18,7 +20,7 @@ class PackageManager:
     last_updated: float | None
 
     def __init__(self, update_interval: int, is_privileged: bool):
-        """Setup core properties shared across package managers.
+        """Set up core properties shared across package managers.
 
         Parameters
         ----------
@@ -61,11 +63,12 @@ class PackageManager:
         """Check if this system has sudo utility present."""
         try:
             result = run(["sudo", "-h"], stdout=DEVNULL, stderr=STDOUT, check=False)
-            return result.returncode == 0
         except FileNotFoundError:
             return False
+        return result.returncode == 0
 
     def run_privileged_command(self, args: list[str], required: bool) -> bool:
+        """Run a command with elevated privileges."""
         # We're already effectively root
         if not self.is_privileged:
             if self.has_sudo:
@@ -124,9 +127,9 @@ class Apk(PackageManager):
         """Check if APK is available on this system."""
         try:
             result = run(["apk", "version"], stdout=DEVNULL, stderr=STDOUT, check=False)
-            return result.returncode == 0
         except FileNotFoundError:
             return False
+        return result.returncode == 0
 
     def _update(self) -> None:
         """Apk specific update method."""
@@ -168,6 +171,8 @@ class Apk(PackageManager):
 
 
 class Apt(PackageManager):
+    """Package manager typically seen in Debian and Ubuntu based systems."""
+
     @staticmethod
     def is_available() -> bool:
         """Check if APT is available on this system."""
@@ -177,12 +182,12 @@ class Apt(PackageManager):
             result = run(
                 ["apt", "show", "apt"], stdout=DEVNULL, stderr=STDOUT, check=False
             )
-            return result.returncode == 0
         except FileNotFoundError:
             return False
+        return result.returncode == 0
 
     def _update(self) -> None:
-        # Oppertunistically run privileged update
+        # Opportunistically run privileged update
         # but dont attempt repeatedly if the first one fails
         self.run_privileged_command(["apt", "update"], required=False)
 
@@ -219,6 +224,8 @@ class Apt(PackageManager):
 
 
 class Yum(PackageManager):
+    """Package manager typically seen in Red Hat and CentOS based systems."""
+
     @staticmethod
     def is_available() -> bool:
         """Check if YUM is available on this system."""
@@ -226,9 +233,9 @@ class Yum(PackageManager):
             result = run(
                 ["yum", "--version"], stdout=DEVNULL, stderr=STDOUT, check=False
             )
-            return result.returncode == 0
         except FileNotFoundError:
             return False
+        return result.returncode == 0
 
     def _update(self) -> None:
         """Yum has no seperate update method."""
