@@ -21,8 +21,10 @@ from .exceptions import (
     Linux2MqttConfigException,
     Linux2MqttException,
     Linux2MqttMetricsException,
+    NoPackageManagerFound,
 )
 from .helpers import sanitize
+from .package_manager import PackageManager, get_package_manager
 from .type_definitions import LinuxDeviceEntry, LinuxEntry, SensorType
 
 metric_logger = logging.getLogger("metrics")
@@ -58,7 +60,7 @@ class BaseMetric:
 
     ha_sensor_type: SensorType = "sensor"
 
-    polled_result: dict[str, str | int | float | list[str | int] | None] | None
+    polled_result: dict[str, str | int | float | list[str] | list[int] | None] | None
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Initialize base class."""
@@ -835,3 +837,137 @@ class FanSpeedMetrics(BaseMetric):
             ) from ex
         else:
             return False
+
+
+class PackageUpdateMetricThread(BaseMetricThread):
+    """Package Update metric thread."""
+
+    def __init__(
+        self,
+        result_queue: Queue[BaseMetric],
+        metric: BaseMetric,
+        package_manager: PackageManager,
+    ):
+        """Initialize the package update thread.
+
+        Parameters
+        ----------
+        result_queue
+            The queue to put the metric into once the data is gathered
+        metric
+            The package update metric to gather data for
+        package_manager
+            The system specific interface for a package manager
+
+        """
+        threading.Thread.__init__(self)
+        self.result_queue = result_queue
+        self.metric = metric
+        self.package_manager = package_manager
+
+    def run(self) -> None:
+        """Run the package update thread.
+
+        Once data is gathered, it is put into the queue and the thread exits.
+
+        Raises
+        ------
+        Linux2MqttMetricsException
+            package update information could not be gathered or prepared for publishing
+
+        """
+        try:
+            self.package_manager.update_if_needed()
+            updates_available = self.package_manager.get_available_updates()
+            self.metric.polled_result = {
+                "count": len(updates_available),
+                "packages": updates_available,
+            }
+            self.result_queue.put(self.metric)
+        except Exception as ex:
+            raise Linux2MqttMetricsException(
+                "Could not gather and publish package update data"
+            ) from ex
+
+
+class PackageUpdateMetrics(BaseMetric):
+    """Package update metrics.
+
+    Attributes
+    ----------
+    package_manager
+        The system specific interface for a package manager
+
+    """
+
+    icon = "mdi:package-up"
+    device_class = ""
+    unit_of_measurement = ""
+    state_field = "count"
+
+    _name = "Package Updates"
+    package_manager: PackageManager
+
+    def __init__(self, update_interval: int, is_privileged: bool):
+        """Initialize the package update metric.
+
+        Parameters
+        ----------
+        update_interval
+            The interval between invokes of update (if applicable)
+
+        is_privileged
+            If the invoking user has effective user ID 0 (root)
+
+        Raises
+        ------
+        ValueError
+            Bad interval defined
+
+        Linux2MqttException
+            An acceptable package manager has not been found
+
+        """
+        super().__init__()
+
+        try:
+            self.package_manager = get_package_manager(update_interval, is_privileged)
+        except NoPackageManagerFound as ex:
+            raise Linux2MqttException(
+                "Failed to find a suitable package manager. Currently supported are: apt, apk, yum"
+            ) from ex
+
+    def poll(self, result_queue: Queue[BaseMetric]) -> bool:
+        """Poll new data for the package updates metric.
+
+        Parameters
+        ----------
+        result_queue
+            The queue where to post new data once gathered
+
+        Returns
+        -------
+        bool
+            True as the data is gathered lazily
+
+        Raises
+        ------
+        Linux2MqttException
+            General exception
+
+        """
+        try:
+            assert result_queue
+        except ReferenceError as ex:
+            raise Linux2MqttException(
+                "Cannot start package update metric due to missing result_queue"
+            ) from ex
+        self.result_queue = result_queue
+        th = PackageUpdateMetricThread(
+            result_queue=result_queue,
+            metric=self,
+            package_manager=self.package_manager,
+        )
+        th.daemon = True
+        th.start()
+        return True  # Expect a deferred result

@@ -15,3 +15,11 @@ class Linux2MqttConnectionException(Linux2MqttException):
 
 class Linux2MqttMetricsException(Linux2MqttException):
     """Metrics processing exception occurred."""
+
+
+class NoPackageManagerFound(Linux2MqttException):
+    """No package manager is identified for this system."""
+
+
+class PackageManagerException(Linux2MqttException):
+    """Generic package manager exception occurred."""

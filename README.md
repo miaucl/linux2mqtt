@@ -106,6 +106,14 @@ This will publish network throughput information about Server1's `eth0` interfac
 
 `linux2mqtt --name Server1 -vvvvv --cpu=60 --vm --fan`
 
+### Package manager updates
+
+`linux2mqtt` can iterate common package managers (currently `Apk` (Alpine), `Apt` (Debian, Ubuntu), `yum` (Centos, Rocky, Fedora)) to enquire about available updates to operating system packages. This provides the number of updates available and lists each updatable package.
+
+Enabling this option will cause increased network traffic in order to update package databases.
+
+`linux2mqtt --name Server1 -vvvvv --packages=`
+
 ## Compatibility
 
 `linux2mqtt` has been tested to work on CentOS, Ubuntu, and Debian (Raspberry Pi), even tough some features are not available everywhere. **Python 3.10 (or above) is recommended.**
@@ -189,7 +197,7 @@ Following VSCode integrations may be helpful:
 
 ### Releasing
 
-It is only possible to release a _final version_ on the `master` branch. For it to pass the gates of the `publish` workflow, it must have the same version in the `tag`, the `setup.cfg`, the `bring_api/__init__.py` and an entry in the `CHANGELOG.md` file.
+It is only possible to release a _final version_ on the `master` branch. For it to pass the gates of the `publish` workflow, it must have the same version in the `tag` and the `bring_api/__init__.py` and an entry in the `CHANGELOG.md` file.
 
 To release a prerelease version, no changelog entry is required, but it can only happen on a feature branch (**not** `master` branch). Also, prerelease versions are marked as such in the github release page.
 

@@ -4,6 +4,7 @@
 import argparse
 import json
 import logging
+from os import geteuid
 import platform
 from queue import Empty, Queue
 import signal
@@ -21,15 +22,18 @@ from .const import (
     DEFAULT_CPU_INTERVAL,
     DEFAULT_INTERVAL,
     DEFAULT_NET_INTERVAL,
+    DEFAULT_PACKAGE_INTERVAL,
     MAX_CONNECTIONS_INTERVAL,
     MAX_CPU_INTERVAL,
     MAX_INTERVAL,
     MAX_NET_INTERVAL,
+    MAX_PACKAGE_INTERVAL,
     MAX_QUEUE_SIZE,
     MIN_CONNECTIONS_INTERVAL,
     MIN_CPU_INTERVAL,
     MIN_INTERVAL,
     MIN_NET_INTERVAL,
+    MIN_PACKAGE_INTERVAL,
     MQTT_CLIENT_ID_DEFAULT,
     MQTT_PORT_DEFAULT,
     MQTT_QOS_DEFAULT,
@@ -44,6 +48,7 @@ from .metrics import (
     FanSpeedMetrics,
     NetConnectionMetrics,
     NetworkMetrics,
+    PackageUpdateMetrics,
     TempMetrics,
     VirtualMemoryMetrics,
 )
@@ -425,12 +430,6 @@ class Linux2Mqtt:
         self._create_discovery_topics()
         while True:
             try:
-                x = 0
-                while x < self.cfg["interval"]:
-                    # Check the queue for deferred results one/sec
-                    time.sleep(1)
-                    self._check_queue()
-                    x += 1
                 for metric in self.metrics:
                     is_deferred = metric.poll(result_queue=self.deferred_metrics_queue)
                     if not is_deferred:
@@ -442,6 +441,12 @@ class Linux2Mqtt:
                     main_logger.warning(
                         "Do not raise due to raise_known_exceptions=False: %s", str(ex)
                     )
+            x = 0
+            while x < self.cfg["interval"]:
+                # Check the queue for deferred results one/sec
+                time.sleep(1)
+                self._check_queue()
+                x += 1
 
 
 def main() -> None:
@@ -571,6 +576,15 @@ def main() -> None:
         "--temp", help="Publish temperature of thermal zones", action="store_true"
     )
     parser.add_argument("--fan", help="Publish fan speeds", action="store_true")
+    parser.add_argument(
+        "--packages",
+        help="Publish package updates if available",
+        type=int,
+        nargs="?",
+        default=DEFAULT_PACKAGE_INTERVAL,
+        metavar="INTERVAL",
+        choices=range(MIN_PACKAGE_INTERVAL, MAX_PACKAGE_INTERVAL),
+    )
 
     try:
         args = parser.parse_args()
@@ -657,7 +671,22 @@ def main() -> None:
                 fm = FanSpeedMetrics(device=device, fan=fan.label)
                 stats.add_metric(fm)
 
-    if not (args.vm or args.cpu or args.du or args.net or args.temp or args.fan):
+    if args.packages:
+        package_updates = PackageUpdateMetrics(
+            update_interval=args.packages, is_privileged=geteuid() == 0
+        )
+        stats.add_metric(package_updates)
+
+    if not (
+        args.vm
+        or args.connections
+        or args.cpu
+        or args.du
+        or args.net
+        or args.temp
+        or args.fan
+        or args.packages
+    ):
         main_logger.warning("No metrics specified. Nothing will be published.")
 
     stats.connect()
