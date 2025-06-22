@@ -22,11 +22,11 @@ It is available as python package on [pypi/linux2mqtt](https://pypi.org/p/linux2
 
 ## Installation and Deployment
 
-It is available as python package on [pypi/systemctl2mqtt](https://pypi.org/p/systemctl2mqtt).
+It is available as python package on [pypi/linux2mqtt](https://pypi.org/p/linux2mqtt).
 
 ### Pypi package
 
-[![PyPI version](https://badge.fury.io/py/systemctl2mqtt.svg)](https://pypi.org/p/systemctl2mqtt)
+[![PyPI version](https://badge.fury.io/py/linux2mqtt.svg)](https://pypi.org/p/linux2mqtt)
 
 ```bash
 pip install linux2mqtt 
