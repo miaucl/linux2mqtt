@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 1.4.0
+
+* Add package manager available updates (supported: apt,apk,yum)
+
 ## 1.3.0
 
 * Add monitoring of connections (ipv4, ipv6, ingoing, outgoing)
