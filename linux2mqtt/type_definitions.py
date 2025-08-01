@@ -18,6 +18,8 @@ class Linux2MqttConfig(TypedDict):
         Log verbosity
     homeassistant_prefix
         MQTT discovery topic prefix
+    homeassistant_disable_attributes
+        Disable attributes in home assistant discovery and exposes everything as entities
     linux2mqtt_hostname
         A descriptive name for the system being monitored
     mqtt_client_id
@@ -43,6 +45,7 @@ class Linux2MqttConfig(TypedDict):
 
     log_level: str
     homeassistant_prefix: str
+    homeassistant_disable_attributes: bool
     linux2mqtt_hostname: str
     mqtt_client_id: str
     mqtt_user: str
@@ -72,6 +75,31 @@ class LinuxDeviceEntry(TypedDict):
     identifiers: str
     name: str
     model: str
+
+
+class MetricEntities(TypedDict):
+    """A metric entity object for discovery in home assistant.
+
+    Attributes
+    ----------
+    name
+        The name of the sensor to display in home assistant
+    state_field
+        The field in the state topic to extract the state value from
+    icon
+        The icon of the sensor to display
+    unit_of_measurement
+        The unit of measurement of the sensor
+    device_class
+        The device class of the sensor
+
+    """
+
+    name: str
+    state_field: str
+    icon: str | None
+    unit_of_measurement: str | None
+    device_class: str | None
 
 
 class LinuxEntry(TypedDict):
@@ -105,7 +133,7 @@ class LinuxEntry(TypedDict):
         The device the sensor is attributed to
     device_class
         The device class of the sensor
-    state_topic
+    json_attributes_topic
         The topic containing all information for the attributes of the sensor
     qos
         The QOS of the discovery message
@@ -125,5 +153,5 @@ class LinuxEntry(TypedDict):
     payload_off: str
     device: LinuxDeviceEntry
     device_class: str | None
-    json_attributes_topic: str
+    json_attributes_topic: str | None
     qos: int
