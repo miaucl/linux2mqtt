@@ -23,6 +23,8 @@ from .const import (
     DEFAULT_INTERVAL,
     DEFAULT_NET_INTERVAL,
     DEFAULT_PACKAGE_INTERVAL,
+    HOMEASSISTANT_DISABLE_ATTRIBUTES_DEFAULT,
+    HOMEASSISTANT_PREFIX_DEFAULT,
     MAX_CONNECTIONS_INTERVAL,
     MAX_CPU_INTERVAL,
     MAX_INTERVAL,
@@ -344,19 +346,23 @@ class Linux2Mqtt:
 
         """
         for metric in self.metrics:
-            discovery_entry = metric.get_discovery(
-                self.state_topic, self.availability_topic, self._device_definition()
+            discovery_entries = metric.get_discovery(
+                self.state_topic,
+                self.availability_topic,
+                self._device_definition(),
+                self.cfg["homeassistant_disable_attributes"],
             )
             discovery_topic = (
                 self.discovery_sensor_topic
                 if metric.ha_sensor_type == "sensor"
                 else self.discovery_binary_sensor_topic
             )
-            self._mqtt_send(
-                discovery_topic.format(metric.name_sanitized),
-                json.dumps(clean_for_discovery(discovery_entry)),
-                retain=True,
-            )
+            for discovery_entry in discovery_entries:
+                self._mqtt_send(
+                    discovery_topic.format(sanitize(discovery_entry["name"])),
+                    json.dumps(clean_for_discovery(discovery_entry)),
+                    retain=True,
+                )
             self._report_status(
                 self.availability_topic.format(metric.name_sanitized), True
             )
@@ -518,8 +524,16 @@ def main() -> None:
     )
     parser.add_argument(
         "--homeassistant-prefix",
-        default="homeassistant",
+        default=HOMEASSISTANT_PREFIX_DEFAULT,
         help="MQTT discovery topic prefix (default: homeassistant)",
+    )
+    parser.add_argument(
+        "--homeassistant-disable-attributes",
+        nargs="?",
+        type=bool,
+        const=True,
+        default=HOMEASSISTANT_DISABLE_ATTRIBUTES_DEFAULT,
+        help="Disable homeassistant attributes and expose everything as entities (default: False)",
     )
     parser.add_argument(
         "--topic-prefix", default="linux", help="MQTT topic prefix (default: linux)"
@@ -614,6 +628,7 @@ def main() -> None:
         {
             "log_level": log_level,
             "homeassistant_prefix": args.homeassistant_prefix,
+            "homeassistant_disable_attributes": args.homeassistant_disable_attributes,
             "linux2mqtt_hostname": args.name,
             "mqtt_client_id": args.client,
             "mqtt_user": args.username,

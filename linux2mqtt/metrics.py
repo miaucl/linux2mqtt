@@ -25,7 +25,7 @@ from .exceptions import (
 )
 from .helpers import sanitize
 from .package_manager import PackageManager, get_package_manager
-from .type_definitions import LinuxDeviceEntry, LinuxEntry, SensorType
+from .type_definitions import LinuxDeviceEntry, LinuxEntry, MetricEntities, SensorType
 
 metric_logger = logging.getLogger("metrics")
 
@@ -57,6 +57,7 @@ class BaseMetric:
     device_class: str | None = None
     icon: str | None = None
     state_field: str = "state"
+    homeassistant_entities: list[MetricEntities] = []
 
     ha_sensor_type: SensorType = "sensor"
 
@@ -71,7 +72,8 @@ class BaseMetric:
         state_topic: str,
         availability_topic: str,
         device_definition: LinuxDeviceEntry,
-    ) -> LinuxEntry:
+        disable_attributes: bool,
+    ) -> list[LinuxEntry]:
         """Get the discovery topic config data.
 
         Parameters
@@ -82,6 +84,8 @@ class BaseMetric:
             The availability topic for the entry
         device_definition
             The device entry fro the homeassistant config
+        disable_attributes
+            Should only one entity be created with attributes or all data as entities
 
         Returns
         -------
@@ -89,24 +93,57 @@ class BaseMetric:
             The homeassistant config entry
 
         """
-        return LinuxEntry(
-            {
-                "name": self.name,
-                "unique_id": f"{device_definition['identifiers']}_{self.name_sanitized}",
-                "availability_topic": availability_topic.format(self.name_sanitized),
-                "payload_available": "online",
-                "payload_not_available": "offline",
-                "state_topic": state_topic.format(self.name_sanitized),
-                "value_template": f"{{{{ value_json.{self.state_field} if value_json is not undefined and value_json.{self.state_field} is not undefined else None }}}}",
-                "unit_of_measurement": self.unit_of_measurement,
-                "icon": self.icon,
-                "device_class": self.device_class,
-                "payload_on": "on",
-                "payload_off": "off",
-                "device": device_definition,
-                "json_attributes_topic": state_topic.format(self.name_sanitized),
-                "qos": 1,
-            }
+        return (
+            [
+                LinuxEntry(
+                    {
+                        "name": self.name,
+                        "unique_id": f"{device_definition['identifiers']}_{self.name_sanitized}",
+                        "availability_topic": availability_topic.format(
+                            self.name_sanitized
+                        ),
+                        "payload_available": "online",
+                        "payload_not_available": "offline",
+                        "state_topic": state_topic.format(self.name_sanitized),
+                        "value_template": f"{{{{ value_json.{self.state_field} if value_json is not undefined and value_json.{self.state_field} is not undefined else None }}}}",
+                        "unit_of_measurement": self.unit_of_measurement,
+                        "icon": self.icon,
+                        "device_class": self.device_class,
+                        "payload_on": "on",
+                        "payload_off": "off",
+                        "device": device_definition,
+                        "json_attributes_topic": state_topic.format(
+                            self.name_sanitized
+                        ),
+                        "qos": 1,
+                    }
+                )
+            ]
+            if not disable_attributes
+            else [
+                LinuxEntry(
+                    {
+                        "name": entity["name"],
+                        "unique_id": f"{device_definition['identifiers']}_{sanitize(entity['name'])}",
+                        "availability_topic": availability_topic.format(
+                            self.name_sanitized
+                        ),
+                        "payload_available": "online",
+                        "payload_not_available": "offline",
+                        "state_topic": state_topic.format(self.name_sanitized),
+                        "value_template": f"{{{{ value_json.{entity['state_field']} if value_json is not undefined and value_json.{entity['state_field']} is not undefined else None }}}}",
+                        "unit_of_measurement": entity["unit_of_measurement"],
+                        "icon": entity["icon"],
+                        "device_class": entity["device_class"],
+                        "payload_on": "on",
+                        "payload_off": "off",
+                        "device": device_definition,
+                        "json_attributes_topic": None,
+                        "qos": 1,
+                    }
+                )
+                for entity in self.homeassistant_entities
+            ]
         )
 
     def poll(self, result_queue: Queue[Any]) -> bool:
@@ -229,10 +266,34 @@ class CPUMetrics(BaseMetric):
 
     """
 
-    _name = "cpu"
+    _name = "CPU"
     icon = "mdi:chip"
     unit_of_measurement = "%"
     state_field = "used"
+    homeassistant_entities = [
+        MetricEntities(
+            {
+                "name": f"CPU {f}",
+                "state_field": f,
+                "icon": "mdi:chip",
+                "unit_of_measurement": "%",
+                "device_class": None,
+            }
+        )
+        for f in [
+            "user",
+            "nice",
+            "system",
+            "idle",
+            "iowait",
+            "irq",
+            "softirq",
+            "steal",
+            "guest",
+            "guest_nice",
+            "used",
+        ]
+    ]
 
     interval: int
 
@@ -304,6 +365,36 @@ class VirtualMemoryMetrics(BaseMetric):
     device_class = "data_size"
     unit_of_measurement = "MB"
     state_field = "used"
+    homeassistant_entities = [
+        MetricEntities(
+            {
+                "name": "Virtual Memory",
+                "state_field": "percent",
+                "icon": "mdi:memory",
+                "unit_of_measurement": "%",
+                "device_class": None,
+            }
+        ),
+        *[
+            MetricEntities(
+                {
+                    "name": f"Virtual Memory {f}",
+                    "state_field": f,
+                    "icon": "mdi:memory",
+                    "unit_of_measurement": "MB",
+                    "device_class": "data_size",
+                }
+            )
+            for f in [
+                "total",
+                "available",
+                "used",
+                "free",
+                "active",
+                "inactive",
+            ]
+        ],
+    ]
 
     def poll(self, result_queue: Queue[Self]) -> bool:
         """Poll new data for the virtual memory metric.
@@ -368,6 +459,33 @@ class DiskUsageMetrics(BaseMetric):
         super().__init__()
         self.mountpoint = mountpoint
         self._name = self._name_template.format(mountpoint)
+        self.homeassistant_entities = [
+            MetricEntities(
+                {
+                    "name": self._name_template.format(mountpoint),
+                    "state_field": "percent",
+                    "icon": "mdi:harddisk",
+                    "unit_of_measurement": "%",
+                    "device_class": None,
+                }
+            ),
+            *[
+                MetricEntities(
+                    {
+                        "name": f"{self._name_template.format(mountpoint)} {f}",
+                        "state_field": f,
+                        "icon": "mdi:harddisk",
+                        "unit_of_measurement": "GB",
+                        "device_class": "data_size",
+                    }
+                )
+                for f in [
+                    "total",
+                    "used",
+                    "free",
+                ]
+            ],
+        ]
 
     def poll(self, result_queue: Queue[Self]) -> bool:
         """Poll new data for the virtual memory metric.
@@ -442,7 +560,7 @@ class NetworkMetricThread(BaseMetricThread):
         self.nic = nic
 
     def run(self) -> None:
-        """Run the cpu thread. Once data is gathered, it is put into the queue and the thread exits.
+        """Run the network thread. Once data is gathered, it is put into the queue and the thread exits.
 
         Raises
         ------
@@ -540,6 +658,22 @@ class NetworkMetrics(BaseMetric):
         self.interval = interval
         self.nic = nic
         self._name = self._name_template.format(nic)
+        self.homeassistant_entities = [
+            MetricEntities(
+                {
+                    "name": f"{self._name_template.format(nic)} {f}",
+                    "state_field": f,
+                    "icon": "mdi:server-network",
+                    "unit_of_measurement": "kbit/s",
+                    "device_class": "data_size",
+                }
+            )
+            for f in [
+                "total_rate",
+                "tx_rate",
+                "rx_rate",
+            ]
+        ]
 
         if interval < MIN_NET_INTERVAL:
             raise ValueError(
@@ -592,6 +726,22 @@ class NetConnectionMetrics(BaseMetric):
     device_class = ""
     unit_of_measurement = ""
     state_field = "count"
+    homeassistant_entities = [
+        MetricEntities(
+            {
+                "name": f"Network connections {f}",
+                "state_field": f,
+                "icon": "mdi:ip-network",
+                "unit_of_measurement": None,
+                "device_class": None,
+            }
+        )
+        for f in [
+            "total",
+            "ipv4",
+            "ipv6",
+        ]
+    ]
 
     def __init__(self, interval: int) -> None:
         """Extract local IPs for evaluation during poll.
@@ -642,7 +792,10 @@ class NetConnectionMetrics(BaseMetric):
             }
 
             self.polled_result = {
-                "count": len([x for x in st if x.status == "ESTABLISHED"]),
+                "count": len(
+                    [x for x in st if x.status == "ESTABLISHED"]
+                ),  # deprecated
+                "total": len([x for x in st if x.status == "ESTABLISHED"]),
                 "ipv4": len(
                     [
                         x
@@ -722,6 +875,20 @@ class TempMetrics(BaseMetric):
         self._device = device
         self._thermal_zone = thermal_zone
         self._name = self._name_template.format(device, thermal_zone)
+        self.homeassistant_entities = [
+            MetricEntities(
+                {
+                    "name": f"{self._name_template.format(device, thermal_zone)} {f}",
+                    "state_field": f,
+                    "icon": "mdi:thermometer",
+                    "unit_of_measurement": "°C",
+                    "device_class": "temperature",
+                }
+            )
+            for f in [
+                "current",
+            ]
+        ]
 
     def poll(self, result_queue: Queue[Self]) -> bool:
         """Poll new data for the thermal zone metric.
@@ -799,6 +966,20 @@ class FanSpeedMetrics(BaseMetric):
         self._device = device
         self._fan = fan
         self._name = self._name_template.format(device, fan)
+        self.homeassistant_entities = [
+            MetricEntities(
+                {
+                    "name": f"{self._name_template.format(device, fan)} {f}",
+                    "state_field": f,
+                    "icon": "mdi:fan",
+                    "unit_of_measurement": None,
+                    "device_class": None,
+                }
+            )
+            for f in [
+                "current",
+            ]
+        ]
 
     def poll(self, result_queue: Queue[Self]) -> bool:
         """Poll new data for the thermal zone metric.
@@ -880,7 +1061,8 @@ class PackageUpdateMetricThread(BaseMetricThread):
             self.package_manager.update_if_needed()
             updates_available = self.package_manager.get_available_updates()
             self.metric.polled_result = {
-                "count": len(updates_available),
+                "count": len(updates_available),  # deprecated
+                "total": len(updates_available),
                 "packages": updates_available,
             }
             self.result_queue.put(self.metric)
@@ -904,6 +1086,17 @@ class PackageUpdateMetrics(BaseMetric):
     device_class = ""
     unit_of_measurement = ""
     state_field = "count"
+    homeassistant_entities = [
+        MetricEntities(
+            {
+                "name": "Package updates",
+                "state_field": "total",
+                "icon": "mdi:package-up",
+                "unit_of_measurement": None,
+                "device_class": None,
+            }
+        )
+    ]
 
     _name = "Package Updates"
     package_manager: PackageManager

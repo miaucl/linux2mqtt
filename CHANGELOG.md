@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 1.5.0
+
+* Add home assistant option to disable attributes and only use entities
+
 ## 1.4.1
 
 * Fix package manager cli default arg
