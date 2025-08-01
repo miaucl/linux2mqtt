@@ -581,7 +581,8 @@ def main() -> None:
         help="Publish package updates if available",
         type=int,
         nargs="?",
-        default=DEFAULT_PACKAGE_INTERVAL,
+        const=DEFAULT_PACKAGE_INTERVAL,
+        default=None,
         metavar="INTERVAL",
         choices=range(MIN_PACKAGE_INTERVAL, MAX_PACKAGE_INTERVAL),
     )
