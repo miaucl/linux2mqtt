@@ -25,6 +25,7 @@ from .exceptions import (
 )
 from .helpers import sanitize
 from .package_manager import PackageManager, get_package_manager
+from .harddrive import HardDrive
 from .type_definitions import LinuxDeviceEntry, LinuxEntry, SensorType
 
 metric_logger = logging.getLogger("metrics")
@@ -971,3 +972,52 @@ class PackageUpdateMetrics(BaseMetric):
         th.daemon = True
         th.start()
         return True  # Expect a deferred result
+
+class HardDriveMetricThread(BaseMetricThread):
+    """CPU metric thread."""
+
+    def __init__(
+        self, result_queue: Queue[BaseMetric], metric: BaseMetric, harddrive: HardDrive
+    ):
+        """Initialize the cpu thread.
+
+        Parameters
+        ----------
+        result_queue
+            The queue to put the metric into once the data is gathered
+        metric
+            The cpu metric to gather data for
+        interval
+            The interval to gather data over
+
+        """
+        threading.Thread.__init__(self)
+        self.result_queue = result_queue
+        self.metric = metric
+        self.harddrive = harddrive
+
+    def run(self) -> None:
+        """Run the cpu thread. Once data is gathered, it is put into the queue and the thread exits.
+
+        Raises
+        ------
+        Linux2MqttMetricsException
+            cpu information could not be gathered or prepared for publishing
+
+        """
+        try:
+            # 
+            self.harddrive.get_status()
+            self.metric.polled_result = {
+                "status": "", #Healthy, Prefail, Failed
+                "name":"", # These might just come from the self.attributes
+                "temperature":"",
+                "size":"",
+
+                **jsons.dump(self.harddrive.attributes),  # type: ignore[unused-ignore]
+            }
+            self.result_queue.put(self.metric)
+        except Exception as ex:
+            raise Linux2MqttMetricsException(
+                "Could not gather and publish hard drive data"
+            ) from ex
