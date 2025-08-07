@@ -25,7 +25,7 @@ from .exceptions import (
 )
 from .helpers import sanitize
 from .package_manager import PackageManager, get_package_manager
-from .harddrive import HardDrive
+from .harddrive import HardDrive, get_hard_drive
 from .type_definitions import LinuxDeviceEntry, LinuxEntry, SensorType
 
 metric_logger = logging.getLogger("metrics")
@@ -979,7 +979,7 @@ class HardDriveMetricThread(BaseMetricThread):
     def __init__(
         self, result_queue: Queue[BaseMetric], metric: BaseMetric, harddrive: HardDrive
     ):
-        """Initialize the cpu thread.
+        """Initialize the HardDrive thread.
 
         Parameters
         ----------
@@ -1021,3 +1021,76 @@ class HardDriveMetricThread(BaseMetricThread):
             raise Linux2MqttMetricsException(
                 "Could not gather and publish hard drive data"
             ) from ex
+        
+class HardDriveMetrics(BaseMetric):
+    """Hard Drive metric."""
+
+    icon = "mdi:harddisk"
+    device_class = "" # TODO See if I can have categories for this
+    unit_of_measurement = ""
+    state_field = "current" # TODO This is the entry from polled results that is set as the state
+
+    _name_template = "Hard Drive (ID:{})"
+    _device: str
+    _thermal_zone: str
+
+    def __init__(self, device: str):
+        """Initialize the hard drive metric.
+
+        Parameters
+        ----------
+        device
+            The device
+
+        Raises
+        ------
+        Linux2MqttConfigException
+            Bad config
+
+        """
+        super().__init__()
+
+        try:
+            self.harddrive = get_hard_drive(device_name=device)
+        except NoPackageManagerFound as ex:
+            raise Linux2MqttException(
+                "Failed to find a suitable hard drive type. Currently supported are: Hard Disk and NVME"
+            ) from ex
+        
+        
+
+    def poll(self, result_queue: Queue[Self]) -> bool:
+        """Poll new data for the hard drive metric.
+
+        Parameters
+        ----------
+        result_queue
+            The queue where to post new data once gathered
+
+        Returns
+        -------
+        bool = False
+            True as the data is gathered lazily
+
+        Raises
+        ------
+        Linux2MqttException
+            General exception
+
+        """
+        try:
+            assert result_queue
+        except ReferenceError as e:
+            raise Linux2MqttException(
+                "Cannot start hard drive metric due to missing result_queue"
+            ) from e
+        self.result_queue = result_queue
+        th = HardDriveMetricThread(
+            result_queue=result_queue, 
+            metric=self,
+            harddrive=self.harddrive
+
+        )
+        th.daemon = True
+        th.start()
+        return True  # Expect a deferred result
