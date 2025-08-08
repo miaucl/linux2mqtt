@@ -18,6 +18,7 @@ from .const import (
     MIN_NET_INTERVAL,
 )
 from .exceptions import (
+    HardDriveException,
     Linux2MqttConfigException,
     Linux2MqttException,
     Linux2MqttMetricsException,
@@ -974,7 +975,7 @@ class PackageUpdateMetrics(BaseMetric):
         return True  # Expect a deferred result
 
 class HardDriveMetricThread(BaseMetricThread):
-    """CPU metric thread."""
+    """Hard Drive metric thread."""
 
     def __init__(
         self, result_queue: Queue[BaseMetric], metric: BaseMetric, harddrive: HardDrive
@@ -986,9 +987,9 @@ class HardDriveMetricThread(BaseMetricThread):
         result_queue
             The queue to put the metric into once the data is gathered
         metric
-            The cpu metric to gather data for
-        interval
-            The interval to gather data over
+            The hard drive metric to gather data for
+        harddrive
+            The type of hard drive to gather data over
 
         """
         threading.Thread.__init__(self)
@@ -997,18 +998,19 @@ class HardDriveMetricThread(BaseMetricThread):
         self.harddrive = harddrive
 
     def run(self) -> None:
-        """Run the cpu thread. Once data is gathered, it is put into the queue and the thread exits.
+        """Run the hard drive thread. Once data is gathered, it is put into the queue and the thread exits.
 
         Raises
         ------
         Linux2MqttMetricsException
-            cpu information could not be gathered or prepared for publishing
+            hard drive information could not be gathered or prepared for publishing
 
         """
         try:
             # 
             self.harddrive.get_status()
             self.metric.polled_result = {
+                # TODO Fill out the attributes metric for Hard Drive and SSD
                 "status": "", #Healthy, Prefail, Failed
                 "name":"", # These might just come from the self.attributes
                 "temperature":"",
@@ -1016,6 +1018,7 @@ class HardDriveMetricThread(BaseMetricThread):
 
                 **jsons.dump(self.harddrive.attributes),  # type: ignore[unused-ignore]
             }
+            self.metric._name = self.harddrive.attributes['model_name']
             self.result_queue.put(self.metric)
         except Exception as ex:
             raise Linux2MqttMetricsException(
@@ -1028,7 +1031,7 @@ class HardDriveMetrics(BaseMetric):
     icon = "mdi:harddisk"
     device_class = "" # TODO See if I can have categories for this
     unit_of_measurement = ""
-    state_field = "current" # TODO This is the entry from polled results that is set as the state
+    state_field = "status"
 
     _name_template = "Hard Drive (ID:{})"
     _device: str
@@ -1044,7 +1047,7 @@ class HardDriveMetrics(BaseMetric):
 
         Raises
         ------
-        Linux2MqttConfigException
+        Linux2MqttException
             Bad config
 
         """
@@ -1052,7 +1055,7 @@ class HardDriveMetrics(BaseMetric):
 
         try:
             self.harddrive = get_hard_drive(device_name=device)
-        except NoPackageManagerFound as ex:
+        except HardDriveException as ex:
             raise Linux2MqttException(
                 "Failed to find a suitable hard drive type. Currently supported are: Hard Disk and NVME"
             ) from ex

@@ -1,39 +1,45 @@
 """Hard drives"""
 
+import json
+import shlex
 from subprocess import DEVNULL, PIPE, STDOUT, Popen, run
+import subprocess
 from time import time
 import re
 
-from .exceptions import HardDriveException
+from .exceptions import HardDriveException, Linux2MqttException
 
 
 class HardDrive:
     """Base class for all harddrives to implement"""
     #parameters
-    
+    _attributes = None
+    device_id: str
+
     def __init__(self, device_id: str):
         """Initialize the hard drive metric.
 
         Parameters
         ----------
-        device
-            The device
-        thermal_zone
-            The thermal zone
-
-        Raises
-        ------
-        Linux2MqttConfigException
-            Bad config
-
+        device_id
+            The device id from /dev/disk/by-id/
+        
         """
-        self._device = device_id
+        self.device_id = device_id
         # self._name = self._name = self._name_template.format(device_) Use the device name from smartctl for the device name
 
         pass
 
-    def _get_attributes():
-        pass
+    def _get_attributes(self):
+        command = shlex.split(f"/usr/sbin/smartctl --info --all --json --nocheck standby /dev/disk/by-id/{self.device_id}")
+        output  = subprocess.run(command, capture_output=True)
+
+        raw_json_data = json.loads(output.stdout)
+        self._attributes = raw_json_data
+
+    def parse_attributes(self):
+        """Hard Drive specific parse function depending on results from smartctl."""
+        raise Linux2MqttException from NotImplementedError
 
 class HardDisk(HardDrive):
     pass
