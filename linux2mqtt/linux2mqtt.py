@@ -14,7 +14,6 @@ import sys
 import time
 from typing import Any
 
-from linux2mqtt.harddrive import get_hard_drive
 import paho.mqtt.client
 import psutil
 
@@ -56,6 +55,7 @@ from .metrics import (
     HardDriveMetrics,
 )
 from .type_definitions import Linux2MqttConfig, LinuxDeviceEntry
+
 
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 

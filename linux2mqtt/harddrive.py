@@ -22,7 +22,8 @@ class HardDrive:
     #parameters
     _attributes = None
     device_id: str
-
+    attributes = dict()
+    
     def __init__(self, device_id: str):
         """Initialize the hard drive metric.
 
@@ -71,8 +72,10 @@ class HardDrive:
 
 
 class SataDrive(HardDrive):
+    
 
     def parse_attributes(self):
+        self._get_attributes()
         ata_smart_attributes = [("Reallocated Sector Count", 5), ("Command Timeout", 38), ("Reported Uncorrectable Errors",187),
                                 ("Current Pending Sector", 197), ("Offline Uncorrectable", 198), ("UDMA CRC Error Count", 199),
                                 ]

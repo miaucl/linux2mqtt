@@ -1008,17 +1008,11 @@ class HardDriveMetricThread(BaseMetricThread):
         """
         try:
             # 
-            self.harddrive.get_status()
+            self.harddrive.parse_attributes()
             self.metric.polled_result = {
-                # TODO Fill out the attributes metric for Hard Drive and SSD
-                "status": "", #Healthy, Prefail, Failed
-                "name":"", # These might just come from the self.attributes
-                "temperature":"",
-                "size":"",
-
                 **jsons.dump(self.harddrive.attributes),  # type: ignore[unused-ignore]
             }
-            self.metric._name = self.harddrive.attributes['model_name']
+            # self.metric._name = self.harddrive.attributes['model_name']
             self.result_queue.put(self.metric)
         except Exception as ex:
             raise Linux2MqttMetricsException(
@@ -1055,6 +1049,7 @@ class HardDriveMetrics(BaseMetric):
 
         try:
             self.harddrive = get_hard_drive(device_name=device)
+            self._name = self._name_template.format(device)
         except HardDriveException as ex:
             raise Linux2MqttException(
                 "Failed to find a suitable hard drive type. Currently supported are: Hard Disk and NVME"
