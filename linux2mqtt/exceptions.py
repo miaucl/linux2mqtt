@@ -26,3 +26,6 @@ class PackageManagerException(Linux2MqttException):
 
 class HardDriveException(Linux2MqttException):
     """Generic Hard Drive exception occured."""
+
+class HardDriveIDException(Linux2MqttException):
+    """Generic Hard Drive exception occured."""

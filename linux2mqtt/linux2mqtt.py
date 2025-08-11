@@ -5,6 +5,7 @@ import argparse
 import json
 import logging
 from os import geteuid
+import os
 import platform
 from queue import Empty, Queue
 import signal
@@ -13,6 +14,7 @@ import sys
 import time
 from typing import Any
 
+from linux2mqtt.harddrive import get_hard_drive
 import paho.mqtt.client
 import psutil
 
@@ -39,7 +41,7 @@ from .const import (
     MQTT_QOS_DEFAULT,
     MQTT_TIMEOUT_DEFAULT,
 )
-from .exceptions import Linux2MqttConfigException, Linux2MqttConnectionException
+from .exceptions import HardDriveIDException, Linux2MqttConfigException, Linux2MqttConnectionException
 from .helpers import clean_for_discovery, sanitize
 from .metrics import (
     BaseMetric,
@@ -51,6 +53,7 @@ from .metrics import (
     PackageUpdateMetrics,
     TempMetrics,
     VirtualMemoryMetrics,
+    HardDriveMetrics,
 )
 from .type_definitions import Linux2MqttConfig, LinuxDeviceEntry
 
@@ -585,6 +588,11 @@ def main() -> None:
         metavar="INTERVAL",
         choices=range(MIN_PACKAGE_INTERVAL, MAX_PACKAGE_INTERVAL),
     )
+    parser.add_argument(
+        "--harddrives",
+        help="Publish hard drive stats if available",
+        action="store_true",
+    )
 
     try:
         args = parser.parse_args()
@@ -677,6 +685,16 @@ def main() -> None:
         )
         stats.add_metric(package_updates)
 
+    if args.harddrives:
+        for drive in os.listdir("/dev/disk/by-id/"):
+            try:
+                harddrive = HardDriveMetrics(drive)
+            # harddrive = get_hard_drive(drive)
+                if harddrive:
+                    stats.add_metric(harddrive)
+            except HardDriveIDException:
+                pass
+
     if not (
         args.vm
         or args.connections
@@ -686,6 +704,7 @@ def main() -> None:
         or args.temp
         or args.fan
         or args.packages
+        or args.harddrives
     ):
         main_logger.warning("No metrics specified. Nothing will be published.")
 

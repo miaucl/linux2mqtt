@@ -8,7 +8,7 @@ import subprocess
 from time import time
 import re
 
-from .exceptions import HardDriveException, Linux2MqttException
+from .exceptions import HardDriveException, HardDriveIDException, Linux2MqttException
 
 class HARDDRIVESTATUS(Enum):
     HEALTHY = 'healthy'
@@ -218,7 +218,6 @@ def get_hard_drive(device_name:str) -> HardDrive:
     elif r2.match(device_name):
         return NVME(device_name)
     else:
-        return None
-        raise HardDriveException
+        raise HardDriveIDException("Harddrive ID not supported")
     
 
