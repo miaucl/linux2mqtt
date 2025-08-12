@@ -1010,13 +1010,13 @@ class HardDriveMetricThread(BaseMetricThread):
             # 
             self.harddrive.parse_attributes()
             self.metric.polled_result = {
-                **jsons.dump(self.harddrive.attributes),  # type: ignore[unused-ignore]
+                **self.harddrive.attributes,  # type: ignore[unused-ignore]
             }
             # self.metric._name = self.harddrive.attributes['model_name']
             self.result_queue.put(self.metric)
         except Exception as ex:
             raise Linux2MqttMetricsException(
-                "Could not gather and publish hard drive data"
+                f"Could not gather and publish hard drive data {self.metric._name}"
             ) from ex
         
 class HardDriveMetrics(BaseMetric):

@@ -1,20 +1,14 @@
 """Hard drives"""
 
-from enum import Enum
+
 import json
 import shlex
 from subprocess import DEVNULL, PIPE, STDOUT, Popen, run
-import subprocess
+# import subprocess
 from time import time
 import re
 
 from .exceptions import HardDriveException, HardDriveIDException, Linux2MqttException
-
-class HARDDRIVESTATUS(Enum):
-    HEALTHY = 'healthy'
-    GOOD = 'good'
-    WARNING = 'warning'
-    FAILING = 'failing'
 
 
 class HardDrive:
@@ -22,8 +16,8 @@ class HardDrive:
     #parameters
     _attributes = None
     device_id: str
-    attributes = dict()
-    
+    attributes: dict
+
     def __init__(self, device_id: str):
         """Initialize the hard drive metric.
 
@@ -75,6 +69,7 @@ class SataDrive(HardDrive):
     
 
     def parse_attributes(self):
+        self.attributes = dict()
         self._get_attributes()
         ata_smart_attributes = [("Reallocated Sector Count", 5), ("Command Timeout", 38), ("Reported Uncorrectable Errors",187),
                                 ("Current Pending Sector", 197), ("Offline Uncorrectable", 198), ("UDMA CRC Error Count", 199),
@@ -91,7 +86,7 @@ class SataDrive(HardDrive):
         new_data = {item['id']: item for item in self._attributes['ata_smart_attributes']['table']}
         for name, key in ata_smart_attributes:
             tmp = new_data[key]['raw']['value'] if new_data.get(key) else None
-            if tmp:
+            if tmp is not None:
                 self.attributes[name] = tmp
 
         self.attributes['status'] = self.get_status_score()
@@ -120,17 +115,18 @@ class SataDrive(HardDrive):
         #         score += 10
 
         if score <= 10:
-            return HARDDRIVESTATUS.HEALTHY
+            return "HEALTHY"
         elif score <= 20:
-            return HARDDRIVESTATUS.GOOD
+            return "GOOD"
         elif score <= 50:
-            return HARDDRIVESTATUS.WARNING
+            return "WARNING"
         else:
-            return HARDDRIVESTATUS.FAILING
+            return "FAILING"
 
 
 class NVME(HardDrive):
     def parse_attributes(self):
+        self._get_attributes()
         nvme_smart_attributes = ['critical_warning', 'percentage_used', 'power_on_hours', 'power_cycles', 'media_errors', 'num_err_log_entries',
                                  'critical_comp_time', 'warning_temp_time', 'available_spare', 'available_spare_threshold']
                
@@ -142,7 +138,7 @@ class NVME(HardDrive):
 
         for key in nvme_smart_attributes:
             tmp = self._attributes['nvme_smart_health_information_log'].get(key)
-            if tmp:
+            if tmp is not None:
                 self.attributes[key] = tmp
         
         self.attributes['status'] = self.get_status_score()
@@ -157,38 +153,38 @@ class NVME(HardDrive):
             score += 100  # Any critical flag = high risk
 
         # NAND wear
-        if self.attributes.get('percent_used') > 90:
+        if self.attributes.get('percent_used',0) > 90:
             score += 50
-        elif self.attributes.get('percent_used') > 80:
+        elif self.attributes.get('percent_used',0) > 80:
             score += 20
-        elif self.attributes.get('percent_used') > 70:
+        elif self.attributes.get('percent_used',0) > 70:
             score += 10
 
         # Media/data errors
-        score += self.attributes.get('media_errors') * 5
+        score += self.attributes.get('media_errors',0) * 5
 
         # Error log entries
         score += min(self.attributes.get('num_error_log_entries'), 50)  # cap at 50
 
         # Temperature issues
-        if self.attributes.get('critical_temp_time') > 0:
+        if self.attributes.get('critical_temp_time',0) > 0:
             score += 30
-        elif self.attributes.get('warning_temp_time') > 0:
+        elif self.attributes.get('warning_temp_time',0) > 0:
             score += 10
 
         # Available spare
-        if self.attributes.get('available_spare') < self.attributes.get('available_spare_threshold'):
+        if self.attributes.get('available_spare',0) < self.attributes.get('available_spare_threshold',0):
             score += 30
 
         # Classification
         if score <= 10:
-            return HARDDRIVESTATUS.HEALTHY
+            return "HEALTHY"
         elif score <= 20:
-            return HARDDRIVESTATUS.GOOD
+            return "GOOD"
         elif score <= 50:
-            return HARDDRIVESTATUS.WARNING
+            return "WARNING"
         else:
-            return HARDDRIVESTATUS.FAILING
+            return "FAILING"
     
 
 
