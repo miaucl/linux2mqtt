@@ -68,13 +68,13 @@ class HardDrive:
     def get_status(self):
         # Classification
         if self.score <= 10:
-            return "HEALTHY"
+            self.status = "HEALTHY"
         elif self.score <= 20:
-            return "GOOD"
+            self.status = "GOOD"
         elif self.score <= 50:
-            return "WARNING"
+            self.status = "WARNING"
         else:
-            return "FAILING"
+            self.status = "FAILING"
 
 
 class SataDrive(HardDrive):
@@ -190,7 +190,7 @@ class NVME(HardDrive):
 
         self.score = score
     
-    
+
 def get_hard_drive(device_name:str) -> HardDrive:
     """Determine the hard drive type.
 
