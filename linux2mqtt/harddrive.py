@@ -17,6 +17,8 @@ class HardDrive:
     _attributes = None
     device_id: str
     attributes: dict
+    score: int
+    status: str
 
     def __init__(self, device_id: str):
         """Initialize the hard drive metric.
@@ -59,10 +61,20 @@ class HardDrive:
         raise Linux2MqttException from NotImplementedError
     
 
-    def get_status_score(self):
+    def get_score(self):
         """Hard Drive specific score function depending on results from smartctl."""
         raise Linux2MqttException from NotImplementedError
-
+    
+    def get_status(self):
+        # Classification
+        if self.score <= 10:
+            return "HEALTHY"
+        elif self.score <= 20:
+            return "GOOD"
+        elif self.score <= 50:
+            return "WARNING"
+        else:
+            return "FAILING"
 
 
 class SataDrive(HardDrive):
@@ -89,10 +101,13 @@ class SataDrive(HardDrive):
             if tmp is not None:
                 self.attributes[name] = tmp
 
-        self.attributes['status'] = self.get_status_score()
+        self.get_score()
+        self.get_status()
+        self.attributes['score'] = self.score
+        self.attributes['status'] = self.status
 
 
-    def get_status_score(self):
+    def get_score(self):
         score = 0
         score += self.attributes.get('Reallocated Sector Count',0) * 2
         if self.attributes.get('Reallocated Sector Count',0) > 50:
@@ -114,18 +129,12 @@ class SataDrive(HardDrive):
         #     elif attributes['percent_used'] > 80:
         #         score += 10
 
-        if score <= 10:
-            return "HEALTHY"
-        elif score <= 20:
-            return "GOOD"
-        elif score <= 50:
-            return "WARNING"
-        else:
-            return "FAILING"
+        self.score = score
 
 
 class NVME(HardDrive):
     def parse_attributes(self):
+        self.attributes = dict()
         self._get_attributes()
         nvme_smart_attributes = ['critical_warning', 'percentage_used', 'power_on_hours', 'power_cycles', 'media_errors', 'num_err_log_entries',
                                  'critical_comp_time', 'warning_temp_time', 'available_spare', 'available_spare_threshold']
@@ -141,11 +150,14 @@ class NVME(HardDrive):
             if tmp is not None:
                 self.attributes[key] = tmp
         
-        self.attributes['status'] = self.get_status_score()
+        self.get_score()
+        self.get_status()
+        self.attributes['score'] = self.score
+        self.attributes['status'] = self.status
 
 
 
-    def get_status_score(self):
+    def get_score(self):
         score = 0
 
         # Critical warnings (bitmask)
@@ -164,7 +176,7 @@ class NVME(HardDrive):
         score += self.attributes.get('media_errors',0) * 5
 
         # Error log entries
-        score += min(self.attributes.get('num_error_log_entries'), 50)  # cap at 50
+        score += min(self.attributes.get('num_error_log_entries',0), 50)  # cap at 50
 
         # Temperature issues
         if self.attributes.get('critical_temp_time',0) > 0:
@@ -176,25 +188,9 @@ class NVME(HardDrive):
         if self.attributes.get('available_spare',0) < self.attributes.get('available_spare_threshold',0):
             score += 30
 
-        # Classification
-        if score <= 10:
-            return "HEALTHY"
-        elif score <= 20:
-            return "GOOD"
-        elif score <= 50:
-            return "WARNING"
-        else:
-            return "FAILING"
+        self.score = score
     
-
-
-# Create a class for Spinning disks and one for NVME
-# In the argparse, have the code create a metric for each of the harddrives found in potential disks
-# The metric can be HDD / SSD depending on the regex match
-# Create a thread for the actual execution of the command as it relies on running subprocess command
-
     
-
 def get_hard_drive(device_name:str) -> HardDrive:
     """Determine the hard drive type.
 
