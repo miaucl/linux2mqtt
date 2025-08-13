@@ -44,7 +44,7 @@ class HardDrive:
         ) as proc:
             stdout, stderr = proc.communicate(timeout=30)
 
-            if proc.returncode != 0:
+            if (proc.returncode&7) != 0:
                 raise HardDriveException(
                     f"Something went wrong with smartctl: {proc.returncode}: '{stderr}'"
                 )
