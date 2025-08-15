@@ -166,6 +166,12 @@ upper_bound: 100
 
 ![Example card in Home Assistant](https://github.com/miaucl/linux2mqtt/blob/master/docs/example_card.png?raw=true)
 
+### Entities vs Attributes
+
+Home assistant is moving away from `attributes` for additional data towards only entities. This is a slow process and currently attributes are the default way for this library, but it may be changed with following argument `--homeassistant-disable-attributes`
+
+> HA doesn’t modify the number of sig figs for attributes because attributes are meant to be raw data. HA in general is moving away from them in favor of entities so that users can control things like sig fig.
+
 ## Documentation
 
 Using `mkdocs`, the documentation and reference is generated and available on [github pages](https://miaucl.github.io/linux2mqtt/).
