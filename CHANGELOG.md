@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 1.4.1
+
+* Fix package manager cli default arg
+
 ## 1.4.0
 
 * Add package manager available updates (supported: apt,apk,yum)
