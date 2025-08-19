@@ -665,7 +665,7 @@ class NetworkMetrics(BaseMetric):
                     "state_field": f,
                     "icon": "mdi:server-network",
                     "unit_of_measurement": "kbit/s",
-                    "device_class": "data_size",
+                    "device_class": "data_rate",
                 }
             )
             for f in [
