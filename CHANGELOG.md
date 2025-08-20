@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 1.5.1
+
+* Fix device_class for home assistant for network metrics @pe-pe
+
 ## 1.5.0
 
 * Add home assistant option to disable attributes and only use entities
