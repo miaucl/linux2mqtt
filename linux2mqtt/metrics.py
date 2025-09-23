@@ -7,7 +7,6 @@ import time
 from typing import Any, Self
 
 import jsons
-import numpy as np
 import psutil
 from psutil._common import addr
 
