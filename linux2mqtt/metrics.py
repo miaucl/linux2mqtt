@@ -577,6 +577,7 @@ class NetworkMetricThread(BaseMetricThread):
                 start_rx = nics[self.nic].bytes_recv
             else:
                 metric_logger.warning("Network %s not available", self.nic)
+                return
             time.sleep(self.interval)
             # get counters after interval
             nics = psutil.net_io_counters(pernic=True)
@@ -585,9 +586,7 @@ class NetworkMetricThread(BaseMetricThread):
                 end_rx = nics[self.nic].bytes_recv
             else:
                 metric_logger.warning("Network %s not available", self.nic)
-                # If the NIC is not available at the end, assume no change
-                end_tx = start_tx
-                end_rx = start_rx
+                return
             # handle counter rollover by ignoring bytes from start_tx/start_rx to maxvalue
             if end_tx >= start_tx:
                 diff_tx = end_tx - start_tx
