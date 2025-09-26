@@ -1,5 +1,4 @@
 paho-mqtt
 jsons
 psutil
-numpy
 typing-extensions
