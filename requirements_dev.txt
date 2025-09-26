@@ -3,7 +3,6 @@ types-paho-mqtt
 jsons
 psutil
 types-psutil
-numpy
 typing-extensions
 mypy
 pydantic

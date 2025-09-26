@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 1.6.0
+
+* Improve network statistics gathering while reducing cpu load @pe-pe
+
 ## 1.5.1
 
 * Fix device_class for home assistant for network metrics @pe-pe

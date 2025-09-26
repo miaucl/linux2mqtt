@@ -7,7 +7,6 @@ import time
 from typing import Any, Self
 
 import jsons
-import numpy as np
 import psutil
 from psutil._common import addr
 
@@ -539,14 +538,14 @@ class NetworkMetricThread(BaseMetricThread):
         interval: int,
         nic: str,
     ):
-        """Initialize the cpu thread.
+        """Initialize the network thread.
 
         Parameters
         ----------
         result_queue: Queue[BaseMetric]
             The queue to put the metric into once the data is gathered
         metric
-            The cpu metric to gather data for
+            The network metric to gather data for
         interval
             The interval to gather data over
         nic
@@ -569,46 +568,44 @@ class NetworkMetricThread(BaseMetricThread):
 
         """
         try:
-            x = 0
-            interval = self.interval
-            tx_bytes = []
-            rx_bytes = []
-            prev_tx = 0
-            prev_rx = 0
-            base_tx = 0
-            base_rx = 0
-            while x < interval:
-                nics = psutil.net_io_counters(pernic=True)
-                if self.nic in nics:
-                    tx = nics[self.nic].bytes_sent
-                    rx = nics[self.nic].bytes_recv
-                    if tx < prev_tx:
-                        # TX counter rollover
-                        base_tx += prev_tx
-                    if rx < prev_rx:
-                        # RX counter rollover
-                        base_rx += prev_rx
-                    tx_bytes.append(base_tx + tx)
-                    rx_bytes.append(base_rx + rx)
-                    prev_tx = tx
-                    prev_rx = rx
-                time.sleep(1)
-                x += 1
-
+            start_tx = 0
+            start_rx = 0
+            # get initial counters
+            nics = psutil.net_io_counters(pernic=True)
             if self.nic in nics:
-                tx_rate_bytes_sec = np.average(np.diff(np.array(tx_bytes)))
-                tx_rate = tx_rate_bytes_sec / 125.0  # bytes/sec to kilobits/sec
-                rx_rate_bytes_sec = np.average(np.diff(np.array(rx_bytes)))
-                rx_rate = rx_rate_bytes_sec / 125.0  # bytes/sec to kilobits/sec
-
-                self.metric.polled_result = {
-                    "total_rate": int(tx_rate + rx_rate),
-                    "tx_rate": int(tx_rate),
-                    "rx_rate": int(rx_rate),
-                }
-                self.result_queue.put(self.metric)
+                start_tx = nics[self.nic].bytes_sent
+                start_rx = nics[self.nic].bytes_recv
             else:
                 metric_logger.warning("Network %s not available", self.nic)
+                return
+            time.sleep(self.interval)
+            # get counters after interval
+            nics = psutil.net_io_counters(pernic=True)
+            if self.nic in nics:
+                end_tx = nics[self.nic].bytes_sent
+                end_rx = nics[self.nic].bytes_recv
+            else:
+                metric_logger.warning("Network %s not available", self.nic)
+                return
+            # handle counter rollover by ignoring bytes from start_tx/start_rx to maxvalue
+            if end_tx >= start_tx:
+                diff_tx = end_tx - start_tx
+            else:
+                diff_tx = end_tx
+            if end_rx >= start_rx:
+                diff_rx = end_rx - start_rx
+            else:
+                diff_rx = end_rx
+            # calculate rate bytes/sec and convert bytes to kilobits/sec
+            tx_rate = diff_tx / self.interval / 125.0
+            rx_rate = diff_rx / self.interval / 125.0
+
+            self.metric.polled_result = {
+                "total_rate": int(tx_rate + rx_rate),
+                "tx_rate": int(tx_rate),
+                "rx_rate": int(rx_rate),
+            }
+            self.result_queue.put(self.metric)
         except Exception as ex:
             raise Linux2MqttMetricsException(
                 "Could not gather and publish network data"

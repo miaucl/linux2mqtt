@@ -17,7 +17,6 @@ dependencies = [
   "jsons",
   "psutil",
   "paho-mqtt",
-  "numpy",
   "typing-extensions"
 ]
 requires-python = ">=3.11"
