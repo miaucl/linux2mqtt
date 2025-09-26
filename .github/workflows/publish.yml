@@ -8,6 +8,8 @@ env:
 jobs:
   build:
     name: Build distribution 📦
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
 
     steps:
