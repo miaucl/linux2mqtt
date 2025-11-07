@@ -199,7 +199,7 @@ class Linux2Mqtt:
                 qos=self.cfg["mqtt_qos"],
                 retain=True,
             )
-            self.mqtt.connect(
+            self.mqtt.connect_async(
                 self.cfg["mqtt_host"], self.cfg["mqtt_port"], self.cfg["mqtt_timeout"]
             )
             self.mqtt.loop_start()
