@@ -191,6 +191,8 @@ class Linux2Mqtt:
                     self.cfg["mqtt_user"], self.cfg["mqtt_password"]
                 )
             self.mqtt.on_connect = self._on_connect
+            self.mqtt.on_connect_fail = self._on_connect_fail
+            self.mqtt.on_disconnect = self._on_disconnect
             self.mqtt.will_set(
                 self.status_topic,
                 "offline",
@@ -232,6 +234,47 @@ class Linux2Mqtt:
             self.connected = True
         else:
             main_logger.error("Connection refused : %s", reason_code.getName())
+
+    def _on_connect_fail(self, _client: Any, _userdata: Any) -> None:
+        """Handle the connection failure.
+
+        Parameters
+        ----------
+        _client
+            The client id (unused)
+        _userdata
+            The userdata (unused)
+
+        """
+        main_logger.error("Connect failed")
+
+    def _on_disconnect(
+        self, _client: Any, _userdata: Any, _flags: Any, reason_code: Any, _props: Any = None,
+    ) -> None:
+        """Handle the disconnection return.
+
+        Parameters
+        ----------
+        _client
+            The client id (unused)
+        _userdata
+            The userdata (unused)
+        _flags
+            The flags (unused)
+        reason_code
+            The reason code
+        _props
+            The props (unused)
+
+        """
+        if reason_code == 0:
+            main_logger.warning("Disconnected from MQTT broker.")
+        else:
+            main_logger.error(
+                "Disconnected : ReasonCode %d, %s",
+                reason_code.value,
+                reason_code.getName(),
+            )
 
     def _mqtt_send(self, topic: str, payload: str, retain: bool = False) -> None:
         """Send a mqtt payload to for a topic.
