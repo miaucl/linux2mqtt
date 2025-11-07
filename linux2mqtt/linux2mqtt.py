@@ -209,7 +209,7 @@ class Linux2Mqtt:
             raise Linux2MqttConnectionException from ex
 
     def _on_connect(
-        self, _client: Any, _userdata: Any, _flags: Any, rc: int, _props: Any = None
+        self, _client: Any, _userdata: Any, _flags: Any, reason_code: Any, _props: Any = None
     ) -> None:
         """Handle the connection return.
 
@@ -221,28 +221,17 @@ class Linux2Mqtt:
             The userdata (unused)
         _flags
             The flags (unused)
-        rc
-            The return code
+        reason_code
+            The reason code
         _props
             The props (unused)
 
         """
-        if rc == 0:
+        if reason_code == 0:
             main_logger.info("Connected to MQTT broker.")
             self.connected = True
-            return
-        elif rc == 1:
-            main_logger.error("Connection refused – incorrect protocol version")
-        elif rc == 2:
-            main_logger.error("Connection refused – invalid client identifier")
-        elif rc == 3:
-            main_logger.error("Connection refused – server unavailable")
-        elif rc == 4:
-            main_logger.error("Connection refused – bad username or password")
-        elif rc == 5:
-            main_logger.error("Connection refused – not authorised")
         else:
-            main_logger.error("Connection refused")
+            main_logger.error("Connection refused : %s", reason_code.getName())
 
     def _mqtt_send(self, topic: str, payload: str, retain: bool = False) -> None:
         """Send a mqtt payload to for a topic.
