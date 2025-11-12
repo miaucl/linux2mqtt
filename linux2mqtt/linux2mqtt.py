@@ -203,12 +203,27 @@ class Linux2Mqtt:
                 self.cfg["mqtt_host"], self.cfg["mqtt_port"], self.cfg["mqtt_timeout"]
             )
             self.mqtt.loop_start()
-            self._mqtt_send(self.status_topic, "online", retain=True)
-            self._mqtt_send(self.version_topic, self.version, retain=True)
         except paho.mqtt.client.WebsocketConnectionError as ex:
             main_logger.exception("Error while trying to connect to MQTT broker.")
             main_logger.debug(ex)
             raise Linux2MqttConnectionException from ex
+
+    def _report_all_statuses(
+        self, status: bool
+    ) -> None:
+        """Report linux2mqtt and metrics statuses on mqtt.
+
+        Parameters
+        ----------
+        status
+            The status to set on the status topic
+
+        """
+        for metric in self.metrics:
+            self._report_status(
+                self.availability_topic.format(metric.name_sanitized), status
+            )
+        self._report_status(self.status_topic, status)
 
     def _on_connect(
         self, _client: Any, _userdata: Any, _flags: Any, reason_code: Any, _props: Any = None
@@ -231,6 +246,7 @@ class Linux2Mqtt:
         """
         if reason_code == 0:
             main_logger.info("Connected to MQTT broker.")
+            self._report_all_statuses(True)
             self.connected = True
         else:
             main_logger.error("Connection refused : %s", reason_code.getName())
@@ -321,14 +337,14 @@ class Linux2Mqtt:
         }
 
     def _report_status(self, status_topic: str, status: bool) -> None:
-        """Report the status on mqtt of linux2mqtt.
+        """Report a status on mqtt.
 
         Parameters
         ----------
         status_topic
-            The status topic for linux2mqtt
+            The status topic
         status
-            The status to set on the status topic for linux2mqtt
+            The status to set on the status topic
 
         """
         self._mqtt_send(status_topic, "online" if status else "offline", retain=True)
@@ -356,11 +372,7 @@ class Linux2Mqtt:
         """Cleanup the linux2mqtt."""
         main_logger.warning("Shutting down gracefully.")
         try:
-            for metric in self.metrics:
-                self._report_status(
-                    self.availability_topic.format(metric.name_sanitized), False
-                )
-            self._mqtt_send(self.status_topic, "offline", retain=True)
+            self._report_all_statuses(False)
             self.mqtt.loop_stop()
             self.mqtt.disconnect()
         except Linux2MqttConnectionException as ex:
@@ -463,9 +475,10 @@ class Linux2Mqtt:
         """
         while not self.connected:
             main_logger.debug("Waiting for connection.")
-            time.sleep(1)
+            time.sleep(5)
 
         self._create_discovery_topics()
+        self._mqtt_send(self.version_topic, self.version, retain=True)
         while True:
             try:
                 for metric in self.metrics:
