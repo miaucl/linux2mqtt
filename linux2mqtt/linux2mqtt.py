@@ -12,6 +12,7 @@ import socket
 import sys
 import time
 from typing import Any
+from threading import Event
 
 import paho.mqtt.client
 import psutil
@@ -94,7 +95,7 @@ class Linux2Mqtt:
 
     cfg: Linux2MqttConfig
     metrics: list[BaseMetric]
-    connected: bool
+    first_connection_event: Event
 
     mqtt: paho.mqtt.client.Client
 
@@ -133,7 +134,7 @@ class Linux2Mqtt:
         self.cfg = cfg
         self.do_not_exit = do_not_exit
         self.metrics = []
-        self.connected = False
+        self.first_connection_event = Event()
 
         system_name_sanitized = sanitize(self.cfg["linux2mqtt_hostname"])
 
@@ -247,7 +248,7 @@ class Linux2Mqtt:
         if reason_code == 0:
             main_logger.info("Connected to MQTT broker.")
             self._report_all_statuses(True)
-            self.connected = True
+            self.first_connection_event.set()
         else:
             main_logger.error("Connection refused : %s", reason_code.getName())
 
@@ -334,6 +335,8 @@ class Linux2Mqtt:
             "identifiers": f"{sanitize(self.cfg['linux2mqtt_hostname'])}_{self.cfg['mqtt_topic_prefix']}",
             "name": f"{self.cfg['linux2mqtt_hostname']} {self.cfg['mqtt_topic_prefix'].title()}",
             "model": f"{platform.system()} {platform.machine()}",
+            "hw_version": f"{platform.release()}",
+            "sw_version": f"linux2mqtt {self.version}"
         }
 
     def _report_status(self, status_topic: str, status: bool) -> None:
@@ -392,6 +395,7 @@ class Linux2Mqtt:
         for metric in self.metrics:
             discovery_entries = metric.get_discovery(
                 self.state_topic,
+                self.status_topic,
                 self.availability_topic,
                 self._device_definition(),
                 self.cfg["homeassistant_disable_attributes"],
@@ -473,9 +477,8 @@ class Linux2Mqtt:
             If anything with the mqtt connection goes wrong
 
         """
-        while not self.connected:
+        while not self.first_connection_event.wait(5):
             main_logger.debug("Waiting for connection.")
-            time.sleep(5)
 
         self._create_discovery_topics()
         self._mqtt_send(self.version_topic, self.version, retain=True)
