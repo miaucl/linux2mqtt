@@ -4,7 +4,9 @@
 import argparse
 import json
 import logging
+from logging.handlers import RotatingFileHandler
 from os import geteuid
+from os import path
 import platform
 from queue import Empty, Queue
 import signal
@@ -13,6 +15,7 @@ import sys
 import time
 from typing import Any
 from threading import Event
+from pathlib import Path
 
 import paho.mqtt.client
 import psutil
@@ -56,8 +59,6 @@ from .metrics import (
     VirtualMemoryMetrics,
 )
 from .type_definitions import Linux2MqttConfig, LinuxDeviceEntry
-
-logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
 main_logger = logging.getLogger("linux2mqtt")
 
@@ -648,6 +649,11 @@ def main() -> None:
         metavar="INTERVAL",
         choices=range(MIN_PACKAGE_INTERVAL, MAX_PACKAGE_INTERVAL),
     )
+    parser.add_argument(
+        "--logdir",
+        default=None,
+        help="Enables logging to specified directory (default: None)",
+    )
 
     try:
         args = parser.parse_args()
@@ -668,6 +674,30 @@ def main() -> None:
         main_logger.setLevel(logging.ERROR)
     elif args.verbosity == 1:
         main_logger.setLevel(logging.CRITICAL)
+
+    # Configure logger
+    main_logger.propagate = False
+
+    log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    formatter = logging.Formatter(log_format)
+
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    main_logger.addHandler(console_handler)
+
+    if args.logdir:
+        try:
+            logdir = Path(args.logdir)
+            absolute_logdir = logdir.resolve() if not logdir.is_absolute() else logdir
+            absolute_logdir.mkdir(parents=True, exist_ok=True)
+            log_file = path.join(absolute_logdir, "linux2mqtt.log")
+            file_handler = RotatingFileHandler(log_file, maxBytes=1_000_000, backupCount=5)
+            file_handler.setFormatter(formatter)
+            main_logger.addHandler(file_handler)
+        except Exception as ex:
+            main_logger.warning(
+                "Failed to initialize logging to directory %s : %s", args.logdir, str(ex)
+            )
 
     log_level = ["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG", "DEBUG"][
         args.verbosity
