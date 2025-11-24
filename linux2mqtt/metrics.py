@@ -80,10 +80,12 @@ class BaseMetric:
         ----------
         state_topic
             The state topic where to find the data for state and attributes
+        linux2mqtt_availability_topic
+            The availability topic for linux2mqtt
         availability_topic
             The availability topic for the entry
         device_definition
-            The device entry fro the homeassistant config
+            The device entry for the homeassistant config
         disable_attributes
             Should only one entity be created with attributes or all data as entities
 
