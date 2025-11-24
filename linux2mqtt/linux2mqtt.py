@@ -5,19 +5,19 @@ import argparse
 import json
 import logging
 from logging.handlers import RotatingFileHandler
-from os import geteuid
-from os import path
+from os import geteuid, path
+from pathlib import Path
 import platform
 from queue import Empty, Queue
 import signal
 import socket
 import sys
+from threading import Event
 import time
 from typing import Any
-from threading import Event
-from pathlib import Path
 
 import paho.mqtt.client
+import paho.mqtt.enums
 import psutil
 
 from . import __version__
@@ -185,7 +185,7 @@ class Linux2Mqtt:
         """
         try:
             self.mqtt = paho.mqtt.client.Client(
-                callback_api_version=paho.mqtt.client.CallbackAPIVersion.VERSION2,  # type: ignore[attr-defined, call-arg]
+                callback_api_version=paho.mqtt.enums.CallbackAPIVersion.VERSION2,
                 client_id=self.cfg["mqtt_client_id"],
             )
             if self.cfg["mqtt_user"] or self.cfg["mqtt_password"]:
@@ -210,9 +210,7 @@ class Linux2Mqtt:
             main_logger.debug(ex)
             raise Linux2MqttConnectionException from ex
 
-    def _report_all_statuses(
-        self, status: bool
-    ) -> None:
+    def _report_all_statuses(self, status: bool) -> None:
         """Report linux2mqtt and metrics statuses on mqtt.
 
         Parameters
@@ -228,7 +226,12 @@ class Linux2Mqtt:
         self._report_status(self.status_topic, status)
 
     def _on_connect(
-        self, _client: Any, _userdata: Any, _flags: Any, reason_code: Any, _props: Any = None
+        self,
+        _client: Any,
+        _userdata: Any,
+        _flags: Any,
+        reason_code: Any,
+        _props: Any = None,
     ) -> None:
         """Handle the connection return.
 
@@ -267,7 +270,12 @@ class Linux2Mqtt:
         main_logger.error("Connect failed")
 
     def _on_disconnect(
-        self, _client: Any, _userdata: Any, _flags: Any, reason_code: Any, _props: Any = None,
+        self,
+        _client: Any,
+        _userdata: Any,
+        _flags: Any,
+        reason_code: Any,
+        _props: Any = None,
     ) -> None:
         """Handle the disconnection return.
 
@@ -337,7 +345,7 @@ class Linux2Mqtt:
             "name": f"{self.cfg['linux2mqtt_hostname']} {self.cfg['mqtt_topic_prefix'].title()}",
             "model": f"{platform.system()} {platform.machine()}",
             "hw_version": f"{platform.release()}",
-            "sw_version": f"linux2mqtt {self.version}"
+            "sw_version": f"linux2mqtt {self.version}",
         }
 
     def _report_status(self, status_topic: str, status: bool) -> None:
@@ -504,6 +512,55 @@ class Linux2Mqtt:
                 x += 1
 
 
+def configure_logger(args: argparse.Namespace) -> None:
+    """Configure main logger.
+
+    Parameters
+    ----------
+    args
+        Parsed program arguments
+
+    """
+    if args.verbosity >= 5:
+        main_logger.setLevel(logging.DEBUG)
+    elif args.verbosity == 4:
+        main_logger.setLevel(logging.INFO)
+    elif args.verbosity == 3:
+        main_logger.setLevel(logging.WARNING)
+    elif args.verbosity == 2:
+        main_logger.setLevel(logging.ERROR)
+    elif args.verbosity == 1:
+        main_logger.setLevel(logging.CRITICAL)
+
+    # Configure logger
+    main_logger.propagate = False
+
+    log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    formatter = logging.Formatter(log_format)
+
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    main_logger.addHandler(console_handler)
+
+    if args.logdir:
+        try:
+            logdir = Path(args.logdir)
+            absolute_logdir = logdir.resolve() if not logdir.is_absolute() else logdir
+            absolute_logdir.mkdir(parents=True, exist_ok=True)
+            log_file = path.join(absolute_logdir, "linux2mqtt.log")
+            file_handler = RotatingFileHandler(
+                log_file, maxBytes=1_000_000, backupCount=5
+            )
+            file_handler.setFormatter(formatter)
+            main_logger.addHandler(file_handler)
+        except Exception as ex:
+            main_logger.warning(
+                "Failed to initialize logging to directory %s : %s",
+                args.logdir,
+                str(ex),
+            )
+
+
 def main() -> None:
     """Run main entry for the linux2mqtt executable.
 
@@ -664,40 +721,7 @@ def main() -> None:
             "Cannot start due to bad config data type"
         ) from ex
 
-    if args.verbosity >= 5:
-        main_logger.setLevel(logging.DEBUG)
-    elif args.verbosity == 4:
-        main_logger.setLevel(logging.INFO)
-    elif args.verbosity == 3:
-        main_logger.setLevel(logging.WARNING)
-    elif args.verbosity == 2:
-        main_logger.setLevel(logging.ERROR)
-    elif args.verbosity == 1:
-        main_logger.setLevel(logging.CRITICAL)
-
-    # Configure logger
-    main_logger.propagate = False
-
-    log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    formatter = logging.Formatter(log_format)
-
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    main_logger.addHandler(console_handler)
-
-    if args.logdir:
-        try:
-            logdir = Path(args.logdir)
-            absolute_logdir = logdir.resolve() if not logdir.is_absolute() else logdir
-            absolute_logdir.mkdir(parents=True, exist_ok=True)
-            log_file = path.join(absolute_logdir, "linux2mqtt.log")
-            file_handler = RotatingFileHandler(log_file, maxBytes=1_000_000, backupCount=5)
-            file_handler.setFormatter(formatter)
-            main_logger.addHandler(file_handler)
-        except Exception as ex:
-            main_logger.warning(
-                "Failed to initialize logging to directory %s : %s", args.logdir, str(ex)
-            )
+    configure_logger(args)
 
     log_level = ["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG", "DEBUG"][
         args.verbosity
@@ -752,14 +776,14 @@ def main() -> None:
             stats.add_metric(net)
 
     if args.temp:
-        st = psutil.sensors_temperatures()  # type: ignore[attr-defined]
+        st = psutil.sensors_temperatures()
         for device in st:
             for thermal_zone in st[device]:
                 tm = TempMetrics(device=device, thermal_zone=thermal_zone.label)
                 stats.add_metric(tm)
 
     if args.fan:
-        fans = psutil.sensors_fans()  # type: ignore[attr-defined]
+        fans = psutil.sensors_fans()
         for device in fans:
             for fan in fans[device]:
                 fm = FanSpeedMetrics(device=device, fan=fan.label)

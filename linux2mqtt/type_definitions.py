@@ -1,7 +1,6 @@
 """linux2mqtt type definitions."""
 
-from typing import Literal, TypedDict
-from typing_extensions import NotRequired
+from typing import Literal, NotRequired, TypedDict
 
 StatusType = Literal["online", "offline"]
 """Metric status"""
@@ -74,14 +73,14 @@ class LinuxDeviceEntry(TypedDict):
         The hardware version of the device (OS version)
     sw_version
         The software version of the device (Linux2mqtt version)
-        
+
     """
 
     identifiers: str
     name: str
     model: str
-    hw_version: NotRequired[ str ]
-    sw_version: NotRequired[ str ]
+    hw_version: NotRequired[str]
+    sw_version: NotRequired[str]
 
 
 class MetricEntities(TypedDict):
@@ -126,9 +125,10 @@ class AvailabilityEntry(TypedDict):
     """
 
     topic: str
-    value_template: NotRequired[ str ]
-    payload_available: NotRequired[ str ]
-    payload_not_available: NotRequired[ str ] 
+    value_template: NotRequired[str]
+    payload_available: NotRequired[str]
+    payload_not_available: NotRequired[str]
+
 
 class LinuxEntry(TypedDict):
     """A linux entry object for discovery in home assistant.
@@ -174,7 +174,7 @@ class LinuxEntry(TypedDict):
     unique_id: str
     icon: str | None
     availability: list[AvailabilityEntry]
-    availability_mode: NotRequired[ str ] 
+    availability_mode: NotRequired[str]
     payload_available: str
     payload_not_available: str
     state_topic: str
