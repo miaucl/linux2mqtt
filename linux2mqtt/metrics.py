@@ -850,17 +850,20 @@ class TempMetrics(BaseMetric):
 
     _name_template = "Thermal Zone ({}/{})"
     _device: str
-    _thermal_zone: str
+    _idx: int
+    _label: str
 
-    def __init__(self, device: str, thermal_zone: str):
+    def __init__(self, device: str, idx: int, label: str):
         """Initialize the thermal zone metric.
 
         Parameters
         ----------
         device
             The device
-        thermal_zone
-            The thermal zone
+        idx
+            The 0-based index of the thermal zone within the list of zones for this device
+        label
+            The label of the zone (can be empty)
 
         Raises
         ------
@@ -870,12 +873,16 @@ class TempMetrics(BaseMetric):
         """
         super().__init__()
         self._device = device
-        self._thermal_zone = thermal_zone
-        self._name = self._name_template.format(device, thermal_zone)
+        self._idx = idx
+        if not label:
+            # 1-based to match lm-sensors
+            label = f"temp{idx + 1}"
+        self._label = label
+        self._name = self._name_template.format(device, label)
         self.homeassistant_entities = [
             MetricEntities(
                 {
-                    "name": f"{self._name_template.format(device, thermal_zone)} {f}",
+                    "name": f"{self._name_template.format(device, label)} {f}",
                     "state_field": f,
                     "icon": "mdi:thermometer",
                     "unit_of_measurement": "°C",
@@ -908,17 +915,12 @@ class TempMetrics(BaseMetric):
         """
         try:
             st = psutil.sensors_temperatures()  # type: ignore[attr-defined]
-            thermal_zone = next(
-                (
-                    item
-                    for item in st.get(self._device, [])
-                    if item.label == self._thermal_zone
-                ),
-                None,
-            )
+            dev = st.get(self._device)
+            assert dev
+            thermal_zone  = dev[self._idx]
             assert thermal_zone
             self.polled_result = {
-                "label": thermal_zone.label,
+                "label": self._label,
                 "current": thermal_zone.current,
                 "high": thermal_zone.high,
                 "critical": thermal_zone.critical,
@@ -941,17 +943,20 @@ class FanSpeedMetrics(BaseMetric):
 
     _name_template = "Fan Speed ({}/{})"
     _device: str
-    _fan: str
+    _idx: int
+    _label: str
 
-    def __init__(self, device: str, fan: str):
+    def __init__(self, device: str, idx: int, label: str):
         """Initialize the fan speed metric.
 
         Parameters
         ----------
         device
             The device
-        fan
-            The fan
+        idx
+            The 0-based index of the fan within the list of fans for this device
+        label
+            The label of the fan (can be empty)
 
         Raises
         ------
@@ -961,12 +966,16 @@ class FanSpeedMetrics(BaseMetric):
         """
         super().__init__()
         self._device = device
-        self._fan = fan
-        self._name = self._name_template.format(device, fan)
+        self._idx = idx
+        if not label:
+            # 1-based to match lm-sensors
+            label = f"fan{idx + 1}"
+        self._label = label
+        self._name = self._name_template.format(device, label)
         self.homeassistant_entities = [
             MetricEntities(
                 {
-                    "name": f"{self._name_template.format(device, fan)} {f}",
+                    "name": f"{self._name_template.format(device, label)} {f}",
                     "state_field": f,
                     "icon": "mdi:fan",
                     "unit_of_measurement": None,
@@ -979,7 +988,7 @@ class FanSpeedMetrics(BaseMetric):
         ]
 
     def poll(self, result_queue: Queue[Self]) -> bool:
-        """Poll new data for the thermal zone metric.
+        """Poll new data for the fan speed metric.
 
         Parameters
         ----------
@@ -999,13 +1008,12 @@ class FanSpeedMetrics(BaseMetric):
         """
         try:
             st = psutil.sensors_fans()  # type: ignore[attr-defined]
-            fan = next(
-                (item for item in st.get(self._device, []) if item.label == self._fan),
-                None,
-            )
+            dev = st.get(self._device)
+            assert dev
+            fan = dev[self._idx]
             assert fan
             self.polled_result = {
-                "label": fan.label,
+                "label": self._label,
                 "current": fan.current,
                 "unit": "rpm",
             }
