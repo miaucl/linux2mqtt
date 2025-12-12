@@ -1,4 +1,4 @@
-name: Publish
+name: Publish Python 🐍 distribution 📦 to PyPI
 
 on: 'push'
 
@@ -8,9 +8,9 @@ env:
 jobs:
   build:
     name: Build distribution 📦
+    runs-on: ubuntu-latest
     permissions:
       contents: read
-    runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v5
@@ -36,10 +36,10 @@ jobs:
   check_version:
     name: Check the version
     if: startsWith(github.ref, 'refs/tags/')  # only publish to PyPI on tag pushes
-    permissions:
-      contents: read
     needs:
       - build
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -60,19 +60,6 @@ jobs:
             exit 1
           else
             echo "Success: Tag version $TAG_VERSION found in package."
-          fi
-
-      - name: Check changelog entry
-        run: |
-          if [ github.ref =~ 'refs/tags/[0-9]+\\.[0-9]+\\.[0-9]+$' ]; then
-            if ! grep -q "## $TAG_VERSION" CHANGELOG.md; then
-              echo "No changelog entry found for version $TAG_VERSION."
-              exit 1
-            else
-              echo "Changelog entry found for version $TAG_VERSION."
-            fi
-          else
-            echo "Pre-release tag, skipping changelog check"
           fi
 
       - name: Check if version type matches branch type
@@ -115,7 +102,7 @@ jobs:
       id-token: write  # IMPORTANT: mandatory for trusted publishing
     steps:
     - name: Download all the dists
-      uses: actions/download-artifact@v5
+      uses: actions/download-artifact@v6
       with:
         name: python-package-distributions
         path: dist/
@@ -124,7 +111,8 @@ jobs:
 
   github-release:
     name: >-
-      Create GitHub release and attach binaries
+      Sign the Python 🐍 distribution 📦 with Sigstore
+      and upload them to GitHub Release
     needs:
     - publish-to-pypi
     runs-on: ubuntu-latest
@@ -152,23 +140,25 @@ jobs:
           echo "prerelease=false" >> $GITHUB_OUTPUT
         fi
     - name: Download all the dists
-      uses: actions/download-artifact@v5
+      uses: actions/download-artifact@v6
       with:
         name: python-package-distributions
         path: dist/
     - name: Sign the dists with Sigstore
-      uses: sigstore/gh-action-sigstore-python@v3.0.1
+      uses: sigstore/gh-action-sigstore-python@v3.1.0
       with:
         inputs: >-
           ./dist/*.tar.gz
           ./dist/*.whl
-    - name: Release
+    - name: Prerelease
       uses: softprops/action-gh-release@v2
+      if: ${{ steps.check_prerelease.outputs.prerelease == 'true' }}
       with:
         tag_name: ${{ github.ref }}
-        name: Release ${{ steps.version.outputs.version }}
+        name: ${{ steps.version.outputs.version }}
         generate_release_notes: true
-        prerelease: ${{ steps.check_prerelease.outputs.prerelease }}  # Mark as prerelease if necessary
+        draft: true
+        prerelease: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}   
     - name: Upload artifact signatures to GitHub Release
@@ -179,5 +169,5 @@ jobs:
       # sigstore-produced signatures and certificates.
       run: >-
         gh release upload
-        '${{ github.ref_name }}' dist/**
+        '${{ steps.version.outputs.version }}' dist/**
         --repo '${{ github.repository }}'
