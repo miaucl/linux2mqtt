@@ -1,5 +1,4 @@
 paho-mqtt
-types-paho-mqtt
 jsons
 psutil
 types-psutil
