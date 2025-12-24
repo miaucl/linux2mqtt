@@ -130,11 +130,15 @@ A few assumptions:
 
 * **Home Assistant is already configured to use a MQTT broker.** Setting up MQTT and HA is beyond the scope of this documentation. However, there are a lot of great tutorials on YouTube. An external broker (or as add-on) like [Mosquitto](https://mosquitto.org/) will need to be installed and the HA MQTT integration configured.
 * **The HA MQTT integration is configured to use `homeassistant` as the MQTT autodiscovery prefix.** This is the default for the integration and also the default for `linux2mqtt`. If you have changed this from the default, use the `--homeassistant-prefix` parameter to specify the correct one.
-* **You're not using TLS to connect to the MQTT broker.** Currently `linux2mqtt` only works with unencrypted connections. Username / password authentication can be specified with the `--username` and `--password` parameters, but TLS encryption is not yet supported.
+* **TLS is optional and disabled by default.** Enable encryption with `--tls` when your broker requires it (see _TLS Support_ below). Username / password authentication can be combined with TLS.
 
 Using the default prefix and a system name of `NUC` (the name of the server), the following state can be found in the "States" section of Developer Tools in HA:
 
 ![Home Assistant Developer Tools screenshot](https://github.com/miaucl/linux2mqtt/blob/master/media/dev_tools_example.png?raw=true)
+
+### TLS Support
+
+Enable encrypted MQTT connections with `--tls`. When TLS is enabled and `--port` is omitted, the client defaults to port `8883`; override it with `--port` if your broker listens elsewhere. The system certificate store is trusted by default, but you can point `--tls-ca` to a custom bundle. Provide both `--tls-cert` and `--tls-key` to authenticate with client certificates. Use `--tls-insecure` only for testing, as it disables certificate verification.
 
 ### Lovelace Dashboards
 
