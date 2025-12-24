@@ -201,6 +201,14 @@ Following VSCode integrations may be helpful:
 * [mypy](https://marketplace.visualstudio.com/items?itemName=matangover.mypy)
 * [markdownlint](https://marketplace.visualstudio.com/items?itemName=DavidAnson.vscode-markdownlint)
 
+To manually run the precommit checks without the pre-commit tool (this does
+need the `requirements_dev.txt` to be installed as shown above):
+
+```bash
+ruff check
+mypy linux2mqtt
+```
+
 ### Releasing
 
 It is only possible to release a _final version_ on the `master` branch. For it to pass the gates of the `publish` workflow, it must have the same version in the `tag` and the `bring_api/__init__.py` and an entry in the `CHANGELOG.md` file.
