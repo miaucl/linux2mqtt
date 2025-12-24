@@ -108,11 +108,21 @@ This will publish network throughput information about Server1's `eth0` interfac
 
 ### Package manager updates
 
-`linux2mqtt` can iterate common package managers (currently `Apk` (Alpine), `Apt` (Debian, Ubuntu), `yum` (Centos, Rocky, Fedora)) to enquire about available updates to operating system packages. This provides the number of updates available and lists each updatable package.
+`linux2mqtt` can iterate common package managers (currently `Apk` (Alpine), `Apt` (Debian, Ubuntu), `yum` (Centos, Rocky, Fedora)) to enquire about available updates to operating system packages, using the `--packages=` parameter. This provides the number of updates available and lists each updatable package.
+
+By default, `linux2mqtt` will search for available updates every 3600 seconds. This can be changed specifying the desired interval in the parameter.
 
 Enabling this option will cause increased network traffic in order to update package databases.
 
-`linux2mqtt --name Server1 -vvvvv --packages=`
+`linux2mqtt --name Server1 -vvvvv --packages=` will search for available updates every 1 hour
+
+`linux2mqtt --name Server1 -vvvvv --packages=7200` will search for available updates every 2 hours
+
+## Logging
+
+`linux2mqtt` can log to a directory in addition to the console using the `--logdir` parameter. The specified directory can be absolute or relative and is created if it doesn't exist. The verbosity parameter applies to file logging and the log file size is limited to 1M bytes and 5 previous files are kept.
+
+`linux2mqtt --name Server1 -vvvvv --logdir /var/log/linux2mqtt/`
 
 ## Compatibility
 
