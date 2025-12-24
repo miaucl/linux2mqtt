@@ -116,7 +116,7 @@ class AvailabilityEntry(TypedDict):
     Attributes
     ----------
     topic
-        The MQTT topic reveiving availability updates
+        The MQTT topic receiving availability updates
     value_template
         Template to extract device's availability from the topic
     payload_available
