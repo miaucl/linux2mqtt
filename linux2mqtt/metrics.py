@@ -2,13 +2,13 @@
 
 import logging
 from queue import Queue
+import socket
 import threading
 import time
 from typing import Any, Self
 
 import jsons
 import psutil
-from psutil._common import addr
 
 from .const import (
     MAX_CPU_INTERVAL,
@@ -22,7 +22,7 @@ from .exceptions import (
     Linux2MqttMetricsException,
     NoPackageManagerFound,
 )
-from .helpers import sanitize
+from .helpers import addr_ip, addr_port, is_addr, sanitize
 from .package_manager import PackageManager, get_package_manager
 from .type_definitions import LinuxDeviceEntry, LinuxEntry, MetricEntities, SensorType
 
@@ -756,7 +756,7 @@ class NetConnectionMetrics(BaseMetric):
 
         for snicaddrs in interface_addrs.values():
             for snicaddr in snicaddrs:
-                if snicaddr.family.value in (2, 10):
+                if snicaddr.family in (socket.AF_INET, socket.AF_INET6):
                     self.ips.add(snicaddr.address)
 
     def poll(self, result_queue: Queue[Self]) -> bool:
@@ -780,58 +780,57 @@ class NetConnectionMetrics(BaseMetric):
         """
         try:
             st = psutil.net_connections()
+
             listening_ports = {
-                x.laddr.port
+                addr_port(x.laddr)
                 for x in st
                 if x.status == "LISTEN"
-                and isinstance(x.laddr, addr)
-                and x.laddr.ip in ("0.0.0.0", "::")
+                and is_addr(x.laddr)
+                and addr_ip(x.laddr) in ("0.0.0.0", "::")
             }
 
+            established = [x for x in st if x.status == "ESTABLISHED"]
+
             self.polled_result = {
-                "count": len(
-                    [x for x in st if x.status == "ESTABLISHED"]
-                ),  # deprecated
-                "total": len([x for x in st if x.status == "ESTABLISHED"]),
+                "count": len(established),  # deprecated
+                "total": len(established),
                 "ipv4": len(
                     [
                         x
-                        for x in st
-                        if x.family.value == 2
-                        and x.status == "ESTABLISHED"
-                        and isinstance(x.laddr, addr)
-                        and not x.laddr.ip.startswith("127.")
+                        for x in established
+                        if x.family == socket.AF_INET
+                        and is_addr(x.laddr)
+                        and not addr_ip(x.laddr).startswith("127.")
                     ]
                 ),
                 "ipv6": len(
                     [
                         x
-                        for x in st
-                        if x.family.value == 10
-                        and x.status == "ESTABLISHED"
-                        and isinstance(x.laddr, addr)
-                        and x.laddr.ip != "::1"
+                        for x in established
+                        if x.family == socket.AF_INET6
+                        and is_addr(x.laddr)
+                        and addr_ip(x.laddr) != "::1"
                     ]
                 ),
                 "listening_ports": list(listening_ports),
                 "outbound": [
-                    f"{x.raddr.ip}:{x.raddr.port}"
-                    for x in st
-                    if x.status == "ESTABLISHED"
-                    and isinstance(x.laddr, addr)
-                    and isinstance(x.raddr, addr)
-                    and x.laddr.ip in self.ips
-                    and x.raddr.ip not in ("::1", "127.0.0.1")
+                    f"{addr_ip(x.raddr)}:{addr_port(x.raddr)}"
+                    for x in established
+                    if is_addr(x.laddr)
+                    and is_addr(x.raddr)
+                    and addr_ip(x.laddr) in self.ips
+                    and addr_ip(x.raddr) not in ("127.0.0.1", "::1")
                 ],
                 "inbound": [
-                    f"{x.raddr.ip}:{x.raddr.port} -> {x.laddr.ip}:{x.laddr.port}"
-                    for x in st
-                    if x.status == "ESTABLISHED"
-                    and isinstance(x.laddr, addr)
-                    and isinstance(x.raddr, addr)
-                    and x.laddr.port in listening_ports
+                    f"{addr_ip(x.raddr)}:{addr_port(x.raddr)} -> "
+                    f"{addr_ip(x.laddr)}:{addr_port(x.laddr)}"
+                    for x in established
+                    if is_addr(x.laddr)
+                    and is_addr(x.raddr)
+                    and addr_port(x.laddr) in listening_ports
                 ],
             }
+
         except Exception as ex:
             raise Linux2MqttMetricsException(
                 "Could not gather and publish net connections"
@@ -914,10 +913,10 @@ class TempMetrics(BaseMetric):
 
         """
         try:
-            st = psutil.sensors_temperatures()  # type: ignore[attr-defined]
+            st = psutil.sensors_temperatures()
             dev = st.get(self._device)
             assert dev
-            thermal_zone  = dev[self._idx]
+            thermal_zone = dev[self._idx]
             assert thermal_zone
             self.polled_result = {
                 "label": self._label,
@@ -1007,7 +1006,7 @@ class FanSpeedMetrics(BaseMetric):
 
         """
         try:
-            st = psutil.sensors_fans()  # type: ignore[attr-defined]
+            st = psutil.sensors_fans()
             dev = st.get(self._device)
             assert dev
             fan = dev[self._idx]

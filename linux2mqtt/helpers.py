@@ -1,8 +1,9 @@
 """linux2mqtt helpers."""
 
 import re
+from typing import TypeGuard
 
-from .type_definitions import LinuxEntry
+from .type_definitions import Addr, LinuxEntry
 
 
 def sanitize(val: str) -> str:
@@ -42,3 +43,23 @@ def clean_for_discovery(val: LinuxEntry) -> dict[str, str | int | float | object
         for k, v in dict(val).items()
         if isinstance(v, str | int | float | object) and v not in (None, "")
     }
+
+
+def is_addr(a: object) -> TypeGuard[Addr]:
+    """Check if an object is an address tuple."""
+    return (
+        isinstance(a, tuple)
+        and len(a) == 2
+        and isinstance(a[0], str)
+        and isinstance(a[1], int)
+    )
+
+
+def addr_ip(a: Addr) -> str:
+    """Get the IP part of an address tuple."""
+    return a[0]
+
+
+def addr_port(a: Addr) -> int:
+    """Get the port part of an address tuple."""
+    return a[1]
