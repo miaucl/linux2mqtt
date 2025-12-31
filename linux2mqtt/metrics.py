@@ -920,7 +920,7 @@ class TempMetrics(BaseMetric):
 
         """
         try:
-            st = psutil.sensors_temperatures()
+            st = psutil.sensors_temperatures()  # type: ignore[attr-defined]
             dev = st.get(self._device)
             assert dev
             thermal_zone = dev[self._idx]
@@ -1013,7 +1013,7 @@ class FanSpeedMetrics(BaseMetric):
 
         """
         try:
-            st = psutil.sensors_fans()
+            st = psutil.sensors_fans()  # type: ignore[attr-defined]
             dev = st.get(self._device)
             assert dev
             fan = dev[self._idx]
