@@ -54,7 +54,7 @@ except Exception as ex:
 
 This will install the latest release of `linux2mqtt`, create the necessary MQTT topics, and start sending virtual memory and CPU utilization metrics. The MQTT broker is assumed to be running on `localhost`. If your broker is running on a different host, specify the hostname or IP address using the `--host` parameter.
 
-`linux2mqtt`requires Python 3.11 or above. If your default Python version is older, you may have to explicitly specify the `pip` version by using `pip3` or `pip-3`.
+`linux2mqtt`requires Python 3.12 or above. If your default Python version is older, you may have to explicitly specify the `pip` version by using `pip3` or `pip-3`.
 
 * The `--name` parameter is used for the friendly name of the sensor in Home Assistant and for the MQTT topic names. If not specified, it defaults to the hostname of the machine.
 * Instantaneous CPU utilization isn't all that informative. It's normal for a CPU to occasionally spike to 100% for a few moments and means that the chip is being utilized to its full potential. However, if the CPU stays pegged at/near 100% over a longer period of time, it is indicative of a bottleneck. The `--cpu=60` parameter is the collection interval for the CPU metrics. Here CPU metrics are gathered for 60 seconds and then the average value is published to MQTT state topic for the sensor. A good value for this option is anywhere between 60 and 1800 seconds (1 to 15 minutes), depending on typical workloads.
@@ -108,15 +108,25 @@ This will publish network throughput information about Server1's `eth0` interfac
 
 ### Package manager updates
 
-`linux2mqtt` can iterate common package managers (currently `Apk` (Alpine), `Apt` (Debian, Ubuntu), `yum` (Centos, Rocky, Fedora)) to enquire about available updates to operating system packages. This provides the number of updates available and lists each updatable package.
+`linux2mqtt` can iterate common package managers (currently `Apk` (Alpine), `Apt` (Debian, Ubuntu), `yum` (Centos, Rocky, Fedora)) to enquire about available updates to operating system packages, using the `--packages=` parameter. This provides the number of updates available and lists each updatable package.
+
+By default, `linux2mqtt` will search for available updates every 3600 seconds. This can be changed specifying the desired interval in the parameter.
 
 Enabling this option will cause increased network traffic in order to update package databases.
 
-`linux2mqtt --name Server1 -vvvvv --packages=`
+`linux2mqtt --name Server1 -vvvvv --packages=` will search for available updates every 1 hour
+
+`linux2mqtt --name Server1 -vvvvv --packages=7200` will search for available updates every 2 hours
+
+## Logging
+
+`linux2mqtt` can log to a directory in addition to the console using the `--logdir` parameter. The specified directory can be absolute or relative and is created if it doesn't exist. The verbosity parameter applies to file logging and the log file size is limited to 1M bytes and 5 previous files are kept.
+
+`linux2mqtt --name Server1 -vvvvv --logdir /var/log/linux2mqtt/`
 
 ## Compatibility
 
-`linux2mqtt` has been tested to work on CentOS, Ubuntu, and Debian (Raspberry Pi), even tough some features are not available everywhere. **Python 3.10 (or above) is recommended.**
+`linux2mqtt` has been tested to work on CentOS, Ubuntu, and Debian (Raspberry Pi), even tough some features are not available everywhere. **Python 3.12 (or above) is recommended.**
 
 ## Running in the Background (Daemonizing)
 
