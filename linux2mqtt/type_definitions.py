@@ -42,6 +42,16 @@ class Linux2MqttConfig(TypedDict):
         QOS for standard MQTT messages
     interval
         Publish metrics to MQTT broker every n seconds
+    mqtt_tls_enabled
+        Enable TLS encryption for the MQTT connection
+    mqtt_tls_ca_cert
+        Custom CA bundle for broker certificate verification
+    mqtt_tls_client_cert
+        Client certificate for mutual TLS authentication
+    mqtt_tls_client_key
+        Client key for mutual TLS authentication
+    mqtt_tls_insecure
+        Disable TLS certificate verification and hostname checks
 
     """
 
@@ -58,6 +68,11 @@ class Linux2MqttConfig(TypedDict):
     mqtt_topic_prefix: str
     mqtt_qos: int
     interval: int
+    mqtt_tls_enabled: bool
+    mqtt_tls_ca_cert: str | None
+    mqtt_tls_client_cert: str | None
+    mqtt_tls_client_key: str | None
+    mqtt_tls_insecure: bool
 
 
 class LinuxDeviceEntry(TypedDict):

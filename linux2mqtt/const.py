@@ -9,6 +9,7 @@ HOMEASSISTANT_PREFIX_DEFAULT = "homeassistant"
 HOMEASSISTANT_DISABLE_ATTRIBUTES_DEFAULT = False
 MQTT_CLIENT_ID_DEFAULT = "linux2mqtt"
 MQTT_PORT_DEFAULT = 1883
+MQTT_TLS_PORT_DEFAULT = 8883
 MQTT_TIMEOUT_DEFAULT = 30  # s
 MQTT_TOPIC_PREFIX_DEFAULT = "linux"
 MQTT_QOS_DEFAULT = 1
@@ -44,5 +45,10 @@ DEFAULT_CONFIG = Linux2MqttConfig(
         "mqtt_topic_prefix": MQTT_TOPIC_PREFIX_DEFAULT,
         "mqtt_qos": MQTT_QOS_DEFAULT,
         "interval": DEFAULT_INTERVAL,
+        "mqtt_tls_enabled": False,
+        "mqtt_tls_ca_cert": None,
+        "mqtt_tls_client_cert": None,
+        "mqtt_tls_client_key": None,
+        "mqtt_tls_insecure": False,
     }
 )
