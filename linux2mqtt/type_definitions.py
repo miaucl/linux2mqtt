@@ -2,6 +2,8 @@
 
 from typing import Literal, TypedDict
 
+Addr = tuple[str, int]
+
 StatusType = Literal["online", "offline"]
 """Metric status"""
 

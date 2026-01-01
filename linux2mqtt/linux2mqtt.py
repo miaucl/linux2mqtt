@@ -183,7 +183,7 @@ class Linux2Mqtt:
         """
         try:
             self.mqtt = paho.mqtt.client.Client(
-                callback_api_version=paho.mqtt.client.CallbackAPIVersion.VERSION2,  # type: ignore[attr-defined, call-arg]
+                callback_api_version=paho.mqtt.client.CallbackAPIVersion.VERSION2,  # type: ignore[attr-defined]
                 client_id=self.cfg["mqtt_client_id"],
             )
             if self.cfg["mqtt_user"] or self.cfg["mqtt_password"]:
@@ -674,14 +674,14 @@ def main() -> None:
             stats.add_metric(net)
 
     if args.temp:
-        st = psutil.sensors_temperatures()  # type: ignore[attr-defined]
+        st = psutil.sensors_temperatures()
         for device in st:
             for idx, thermal_zone in enumerate(st[device]):
                 tm = TempMetrics(device=device, idx=idx, label=thermal_zone.label)
                 stats.add_metric(tm)
 
     if args.fan:
-        fans = psutil.sensors_fans()  # type: ignore[attr-defined]
+        fans = psutil.sensors_fans()
         for device in fans:
             for idx, fan in enumerate(fans[device]):
                 fm = FanSpeedMetrics(device=device, idx=idx, label=fan.label)
