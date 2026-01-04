@@ -4,16 +4,20 @@
 import argparse
 import json
 import logging
-from os import geteuid
+from logging.handlers import RotatingFileHandler
+from os import geteuid, path
+from pathlib import Path
 import platform
 from queue import Empty, Queue
 import signal
 import socket
 import sys
+from threading import Event
 import time
 from typing import Any
 
 import paho.mqtt.client
+import paho.mqtt.enums
 import psutil
 
 from . import __version__
@@ -56,8 +60,6 @@ from .metrics import (
 )
 from .type_definitions import Linux2MqttConfig, LinuxDeviceEntry
 
-logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-
 main_logger = logging.getLogger("linux2mqtt")
 
 
@@ -94,7 +96,7 @@ class Linux2Mqtt:
 
     cfg: Linux2MqttConfig
     metrics: list[BaseMetric]
-    connected: bool
+    first_connection_event: Event
 
     mqtt: paho.mqtt.client.Client
 
@@ -133,7 +135,7 @@ class Linux2Mqtt:
         self.cfg = cfg
         self.do_not_exit = do_not_exit
         self.metrics = []
-        self.connected = False
+        self.first_connection_event = Event()
 
         system_name_sanitized = sanitize(self.cfg["linux2mqtt_hostname"])
 
@@ -183,7 +185,7 @@ class Linux2Mqtt:
         """
         try:
             self.mqtt = paho.mqtt.client.Client(
-                callback_api_version=paho.mqtt.client.CallbackAPIVersion.VERSION2,  # type: ignore[attr-defined]
+                callback_api_version=paho.mqtt.enums.CallbackAPIVersion.VERSION2,
                 client_id=self.cfg["mqtt_client_id"],
             )
             if self.cfg["mqtt_user"] or self.cfg["mqtt_password"]:
@@ -191,25 +193,45 @@ class Linux2Mqtt:
                     self.cfg["mqtt_user"], self.cfg["mqtt_password"]
                 )
             self.mqtt.on_connect = self._on_connect
+            self.mqtt.on_connect_fail = self._on_connect_fail
+            self.mqtt.on_disconnect = self._on_disconnect
             self.mqtt.will_set(
                 self.status_topic,
                 "offline",
                 qos=self.cfg["mqtt_qos"],
                 retain=True,
             )
-            self.mqtt.connect(
+            self.mqtt.connect_async(
                 self.cfg["mqtt_host"], self.cfg["mqtt_port"], self.cfg["mqtt_timeout"]
             )
             self.mqtt.loop_start()
-            self._mqtt_send(self.status_topic, "online", retain=True)
-            self._mqtt_send(self.version_topic, self.version, retain=True)
         except paho.mqtt.client.WebsocketConnectionError as ex:
             main_logger.exception("Error while trying to connect to MQTT broker.")
             main_logger.debug(ex)
             raise Linux2MqttConnectionException from ex
 
+    def _report_all_statuses(self, status: bool) -> None:
+        """Report linux2mqtt and metrics statuses on mqtt.
+
+        Parameters
+        ----------
+        status
+            The status to set on the status topic
+
+        """
+        for metric in self.metrics:
+            self._report_status(
+                self.availability_topic.format(metric.name_sanitized), status
+            )
+        self._report_status(self.status_topic, status)
+
     def _on_connect(
-        self, _client: Any, _userdata: Any, _flags: Any, rc: int, _props: Any = None
+        self,
+        _client: Any,
+        _userdata: Any,
+        _flags: Any,
+        reason_code: Any,
+        _props: Any = None,
     ) -> None:
         """Handle the connection return.
 
@@ -221,28 +243,64 @@ class Linux2Mqtt:
             The userdata (unused)
         _flags
             The flags (unused)
-        rc
-            The return code
+        reason_code
+            The reason code
         _props
             The props (unused)
 
         """
-        if rc == 0:
+        if reason_code == 0:
             main_logger.info("Connected to MQTT broker.")
-            self.connected = True
-            return
-        elif rc == 1:
-            main_logger.error("Connection refused – incorrect protocol version")
-        elif rc == 2:
-            main_logger.error("Connection refused – invalid client identifier")
-        elif rc == 3:
-            main_logger.error("Connection refused – server unavailable")
-        elif rc == 4:
-            main_logger.error("Connection refused – bad username or password")
-        elif rc == 5:
-            main_logger.error("Connection refused – not authorised")
+            self._report_all_statuses(True)
+            self.first_connection_event.set()
         else:
-            main_logger.error("Connection refused")
+            main_logger.error("Connection refused : %s", reason_code.getName())
+
+    def _on_connect_fail(self, _client: Any, _userdata: Any) -> None:
+        """Handle the connection failure.
+
+        Parameters
+        ----------
+        _client
+            The client id (unused)
+        _userdata
+            The userdata (unused)
+
+        """
+        main_logger.error("Connect failed")
+
+    def _on_disconnect(
+        self,
+        _client: Any,
+        _userdata: Any,
+        _flags: Any,
+        reason_code: Any,
+        _props: Any = None,
+    ) -> None:
+        """Handle the disconnection return.
+
+        Parameters
+        ----------
+        _client
+            The client id (unused)
+        _userdata
+            The userdata (unused)
+        _flags
+            The flags (unused)
+        reason_code
+            The reason code
+        _props
+            The props (unused)
+
+        """
+        if reason_code == 0:
+            main_logger.warning("Disconnected from MQTT broker.")
+        else:
+            main_logger.error(
+                "Disconnected : ReasonCode %d, %s",
+                reason_code.value,
+                reason_code.getName(),
+            )
 
     def _mqtt_send(self, topic: str, payload: str, retain: bool = False) -> None:
         """Send a mqtt payload to for a topic.
@@ -286,17 +344,19 @@ class Linux2Mqtt:
             "identifiers": f"{sanitize(self.cfg['linux2mqtt_hostname'])}_{self.cfg['mqtt_topic_prefix']}",
             "name": f"{self.cfg['linux2mqtt_hostname']} {self.cfg['mqtt_topic_prefix'].title()}",
             "model": f"{platform.system()} {platform.machine()}",
+            "hw_version": f"{platform.release()}",
+            "sw_version": f"linux2mqtt {self.version}",
         }
 
     def _report_status(self, status_topic: str, status: bool) -> None:
-        """Report the status on mqtt of linux2mqtt.
+        """Report a status on mqtt.
 
         Parameters
         ----------
         status_topic
-            The status topic for linux2mqtt
+            The status topic
         status
-            The status to set on the status topic for linux2mqtt
+            The status to set on the status topic
 
         """
         self._mqtt_send(status_topic, "online" if status else "offline", retain=True)
@@ -324,11 +384,7 @@ class Linux2Mqtt:
         """Cleanup the linux2mqtt."""
         main_logger.warning("Shutting down gracefully.")
         try:
-            for metric in self.metrics:
-                self._report_status(
-                    self.availability_topic.format(metric.name_sanitized), False
-                )
-            self._mqtt_send(self.status_topic, "offline", retain=True)
+            self._report_all_statuses(False)
             self.mqtt.loop_stop()
             self.mqtt.disconnect()
         except Linux2MqttConnectionException as ex:
@@ -348,6 +404,7 @@ class Linux2Mqtt:
         for metric in self.metrics:
             discovery_entries = metric.get_discovery(
                 self.state_topic,
+                self.status_topic,
                 self.availability_topic,
                 self._device_definition(),
                 self.cfg["homeassistant_disable_attributes"],
@@ -429,11 +486,11 @@ class Linux2Mqtt:
             If anything with the mqtt connection goes wrong
 
         """
-        while not self.connected:
+        while not self.first_connection_event.wait(5):
             main_logger.debug("Waiting for connection.")
-            time.sleep(1)
 
         self._create_discovery_topics()
+        self._mqtt_send(self.version_topic, self.version, retain=True)
         while True:
             try:
                 for metric in self.metrics:
@@ -453,6 +510,55 @@ class Linux2Mqtt:
                 time.sleep(1)
                 self._check_queue()
                 x += 1
+
+
+def configure_logger(args: argparse.Namespace) -> None:
+    """Configure main logger.
+
+    Parameters
+    ----------
+    args
+        Parsed program arguments
+
+    """
+    if args.verbosity >= 5:
+        main_logger.setLevel(logging.DEBUG)
+    elif args.verbosity == 4:
+        main_logger.setLevel(logging.INFO)
+    elif args.verbosity == 3:
+        main_logger.setLevel(logging.WARNING)
+    elif args.verbosity == 2:
+        main_logger.setLevel(logging.ERROR)
+    elif args.verbosity == 1:
+        main_logger.setLevel(logging.CRITICAL)
+
+    # Configure logger
+    main_logger.propagate = False
+
+    log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    formatter = logging.Formatter(log_format)
+
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    main_logger.addHandler(console_handler)
+
+    if args.logdir:
+        try:
+            logdir = Path(args.logdir)
+            absolute_logdir = logdir.resolve() if not logdir.is_absolute() else logdir
+            absolute_logdir.mkdir(parents=True, exist_ok=True)
+            log_file = path.join(absolute_logdir, "linux2mqtt.log")
+            file_handler = RotatingFileHandler(
+                log_file, maxBytes=1_000_000, backupCount=5
+            )
+            file_handler.setFormatter(formatter)
+            main_logger.addHandler(file_handler)
+        except Exception as ex:
+            main_logger.warning(
+                "Failed to initialize logging to directory %s : %s",
+                args.logdir,
+                str(ex),
+            )
 
 
 def main() -> None:
@@ -600,6 +706,11 @@ def main() -> None:
         metavar="INTERVAL",
         choices=range(MIN_PACKAGE_INTERVAL, MAX_PACKAGE_INTERVAL),
     )
+    parser.add_argument(
+        "--logdir",
+        default=None,
+        help="Enables logging to specified directory (default: None)",
+    )
 
     try:
         args = parser.parse_args()
@@ -610,16 +721,7 @@ def main() -> None:
             "Cannot start due to bad config data type"
         ) from ex
 
-    if args.verbosity >= 5:
-        main_logger.setLevel(logging.DEBUG)
-    elif args.verbosity == 4:
-        main_logger.setLevel(logging.INFO)
-    elif args.verbosity == 3:
-        main_logger.setLevel(logging.WARNING)
-    elif args.verbosity == 2:
-        main_logger.setLevel(logging.ERROR)
-    elif args.verbosity == 1:
-        main_logger.setLevel(logging.CRITICAL)
+    configure_logger(args)
 
     log_level = ["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG", "DEBUG"][
         args.verbosity
