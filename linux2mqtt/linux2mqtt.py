@@ -201,6 +201,7 @@ class Linux2Mqtt:
                 qos=self.cfg["mqtt_qos"],
                 retain=True,
             )
+            self.mqtt.reconnect_delay_set(min_delay=1, max_delay=300)
             self.mqtt.connect_async(
                 self.cfg["mqtt_host"], self.cfg["mqtt_port"], self.cfg["mqtt_timeout"]
             )
@@ -252,6 +253,8 @@ class Linux2Mqtt:
         if reason_code == 0:
             main_logger.info("Connected to MQTT broker.")
             self._report_all_statuses(True)
+            self._mqtt_send(self.version_topic, self.version, retain=True)
+            self._create_discovery_topics()
             self.first_connection_event.set()
         else:
             main_logger.error("Connection refused : %s", reason_code.getName())
@@ -489,8 +492,6 @@ class Linux2Mqtt:
         while not self.first_connection_event.wait(5):
             main_logger.debug("Waiting for connection.")
 
-        self._create_discovery_topics()
-        self._mqtt_send(self.version_topic, self.version, retain=True)
         while True:
             try:
                 for metric in self.metrics:
