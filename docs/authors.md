@@ -7,8 +7,9 @@
 ## Contributors
 
 * Adam Cooper [@GenericStudent](https://github.com/GenericStudent)
-
-Why not come join us and contribute?
+* PePe [@pe-pe](https://github.com/pe-pe)
+* Matthijs Kooijman [@matthijskooijman](https://github.com/matthijskooijman)
+* Endymion78 [@Endymion78](https://github.com/Endymion78)
 
 ## Further Credits
 
