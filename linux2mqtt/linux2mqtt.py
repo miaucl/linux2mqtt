@@ -15,6 +15,7 @@ import sys
 from threading import Event
 import time
 from typing import Any
+import uuid
 
 import paho.mqtt.client
 import paho.mqtt.enums
@@ -186,7 +187,7 @@ class Linux2Mqtt:
         try:
             self.mqtt = paho.mqtt.client.Client(
                 callback_api_version=paho.mqtt.enums.CallbackAPIVersion.VERSION2,
-                client_id=self.cfg["mqtt_client_id"],
+                client_id=f"{self.cfg['mqtt_client_id']}_{uuid.uuid4().hex[:6]}",
             )
             if self.cfg["mqtt_user"] or self.cfg["mqtt_password"]:
                 self.mqtt.username_pw_set(
