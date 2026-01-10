@@ -325,7 +325,8 @@ class Linux2Mqtt:
 
         """
         try:
-            main_logger.debug("Sending to MQTT: %s: %s", topic, payload)
+            if main_logger.isEnabledFor(logging.DEBUG):
+                main_logger.debug("Sending to MQTT: %s: %s", topic, payload)
             self.mqtt.publish(
                 topic, payload=payload, qos=self.cfg["mqtt_qos"], retain=retain
             )
