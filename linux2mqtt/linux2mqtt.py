@@ -15,6 +15,7 @@ import sys
 from threading import Event
 import time
 from typing import Any
+import uuid
 
 import paho.mqtt.client
 import paho.mqtt.enums
@@ -186,7 +187,7 @@ class Linux2Mqtt:
         try:
             self.mqtt = paho.mqtt.client.Client(
                 callback_api_version=paho.mqtt.enums.CallbackAPIVersion.VERSION2,
-                client_id=self.cfg["mqtt_client_id"],
+                client_id=f"{self.cfg['mqtt_client_id']}_{uuid.uuid4().hex[:6]}",
             )
             if self.cfg["mqtt_user"] or self.cfg["mqtt_password"]:
                 self.mqtt.username_pw_set(
@@ -201,6 +202,7 @@ class Linux2Mqtt:
                 qos=self.cfg["mqtt_qos"],
                 retain=True,
             )
+            self.mqtt.reconnect_delay_set(min_delay=1, max_delay=300)
             self.mqtt.connect_async(
                 self.cfg["mqtt_host"], self.cfg["mqtt_port"], self.cfg["mqtt_timeout"]
             )
@@ -252,6 +254,8 @@ class Linux2Mqtt:
         if reason_code == 0:
             main_logger.info("Connected to MQTT broker.")
             self._report_all_statuses(True)
+            self._mqtt_send(self.version_topic, self.version, retain=True)
+            self._create_discovery_topics()
             self.first_connection_event.set()
         else:
             main_logger.error("Connection refused : %s", reason_code.getName())
@@ -489,8 +493,6 @@ class Linux2Mqtt:
         while not self.first_connection_event.wait(5):
             main_logger.debug("Waiting for connection.")
 
-        self._create_discovery_topics()
-        self._mqtt_send(self.version_topic, self.version, retain=True)
         while True:
             try:
                 for metric in self.metrics:
