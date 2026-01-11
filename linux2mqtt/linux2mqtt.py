@@ -303,13 +303,22 @@ class Linux2Mqtt:
             Any additional kwargs
 
         """
-        if reason_code == 0:
-            main_logger.warning("Disconnected from MQTT broker.")
+        # Case 1: clean disconnect or MQTT v5 reason code
+        if hasattr(reason_code, "getName"):
+            if reason_code == 0:
+                main_logger.warning("Disconnected from MQTT broker.")
+            else:
+                main_logger.error(
+                    "Disconnected: ReasonCode %s (%s)",
+                    getattr(reason_code, "value", "n/a"),
+                    reason_code.getName(),
+                )
+
+        # Case 2: connection refused / network failure
         else:
             main_logger.error(
-                "Disconnected : ReasonCode %d, %s",
-                reason_code.value,
-                reason_code.getName(),
+                "Disconnected before CONNACK (likely auth or network issue): %s",
+                reason_code,
             )
 
     def _mqtt_send(self, topic: str, payload: str, retain: bool = False) -> None:
