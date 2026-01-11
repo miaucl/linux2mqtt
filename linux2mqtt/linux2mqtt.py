@@ -280,6 +280,8 @@ class Linux2Mqtt:
         _flags: Any,
         reason_code: Any,
         _props: Any = None,
+        *_args: Any,
+        **_kwargs: Any,
     ) -> None:
         """Handle the disconnection return.
 
@@ -295,6 +297,10 @@ class Linux2Mqtt:
             The reason code
         _props
             The props (unused)
+        _args
+            Any additional args
+        _kwargs
+            Any additional kwargs
 
         """
         if reason_code == 0:
