@@ -6,8 +6,8 @@ import json
 import logging
 from logging.handlers import RotatingFileHandler
 from os import geteuid, path
-import os
 from pathlib import Path
+import os
 import platform
 from queue import Empty, Queue
 import signal
