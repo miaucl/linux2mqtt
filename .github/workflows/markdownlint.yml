@@ -2,12 +2,14 @@ name: Markdownlint
 
 on: [ push, pull_request ]
 
+permissions:
+  contents: read
 jobs:
   markdownlint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: DavidAnson/markdownlint-cli2-action@v20
+      - uses: actions/checkout@v6
+      - uses: DavidAnson/markdownlint-cli2-action@v22
         with:
           config: '.markdownlint.yaml'
           globs: |

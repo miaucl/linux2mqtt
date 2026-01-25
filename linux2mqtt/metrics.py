@@ -2,14 +2,13 @@
 
 import logging
 from queue import Queue
+import socket
 import threading
 import time
 from typing import Any, Self
 
 import jsons
-import numpy as np
 import psutil
-from psutil._common import addr
 
 from .const import (
     MAX_CPU_INTERVAL,
@@ -24,10 +23,10 @@ from .exceptions import (
     Linux2MqttMetricsException,
     NoPackageManagerFound,
 )
-from .helpers import sanitize
+from .helpers import addr_ip, addr_port, is_addr, sanitize
 from .package_manager import PackageManager, get_package_manager
+from .type_definitions import LinuxDeviceEntry, LinuxEntry, MetricEntities, SensorType
 from .harddrive import HardDrive, get_hard_drive
-from .type_definitions import LinuxDeviceEntry, LinuxEntry, SensorType
 
 metric_logger = logging.getLogger("metrics")
 
@@ -59,6 +58,7 @@ class BaseMetric:
     device_class: str | None = None
     icon: str | None = None
     state_field: str = "state"
+    homeassistant_entities: list[MetricEntities] = []
 
     ha_sensor_type: SensorType = "sensor"
 
@@ -71,19 +71,25 @@ class BaseMetric:
     def get_discovery(
         self,
         state_topic: str,
+        linux2mqtt_availability_topic: str,
         availability_topic: str,
         device_definition: LinuxDeviceEntry,
-    ) -> LinuxEntry:
+        disable_attributes: bool,
+    ) -> list[LinuxEntry]:
         """Get the discovery topic config data.
 
         Parameters
         ----------
         state_topic
             The state topic where to find the data for state and attributes
+        linux2mqtt_availability_topic
+            The availability topic for linux2mqtt
         availability_topic
             The availability topic for the entry
         device_definition
-            The device entry fro the homeassistant config
+            The device entry for the homeassistant config
+        disable_attributes
+            Should only one entity be created with attributes or all data as entities
 
         Returns
         -------
@@ -91,24 +97,61 @@ class BaseMetric:
             The homeassistant config entry
 
         """
-        return LinuxEntry(
-            {
-                "name": self.name,
-                "unique_id": f"{device_definition['identifiers']}_{self.name_sanitized}",
-                "availability_topic": availability_topic.format(self.name_sanitized),
-                "payload_available": "online",
-                "payload_not_available": "offline",
-                "state_topic": state_topic.format(self.name_sanitized),
-                "value_template": f"{{{{ value_json.{self.state_field} if value_json is not undefined and value_json.{self.state_field} is not undefined else None }}}}",
-                "unit_of_measurement": self.unit_of_measurement,
-                "icon": self.icon,
-                "device_class": self.device_class,
-                "payload_on": "on",
-                "payload_off": "off",
-                "device": device_definition,
-                "json_attributes_topic": state_topic.format(self.name_sanitized),
-                "qos": 1,
-            }
+        return (
+            [
+                LinuxEntry(
+                    {
+                        "name": self.name,
+                        "unique_id": f"{device_definition['identifiers']}_{self.name_sanitized}",
+                        "availability": [
+                            {"topic": linux2mqtt_availability_topic},
+                            {"topic": availability_topic.format(self.name_sanitized)},
+                        ],
+                        "availability_mode": "all",
+                        "payload_available": "online",
+                        "payload_not_available": "offline",
+                        "state_topic": state_topic.format(self.name_sanitized),
+                        "value_template": f"{{{{ value_json.{self.state_field} if value_json is not undefined and value_json.{self.state_field} is not undefined else None }}}}",
+                        "unit_of_measurement": self.unit_of_measurement,
+                        "icon": self.icon,
+                        "device_class": self.device_class,
+                        "payload_on": "on",
+                        "payload_off": "off",
+                        "device": device_definition,
+                        "json_attributes_topic": state_topic.format(
+                            self.name_sanitized
+                        ),
+                        "qos": 1,
+                    }
+                )
+            ]
+            if not disable_attributes
+            else [
+                LinuxEntry(
+                    {
+                        "name": entity["name"],
+                        "unique_id": f"{device_definition['identifiers']}_{sanitize(entity['name'])}",
+                        "availability": [
+                            {"topic": linux2mqtt_availability_topic},
+                            {"topic": availability_topic.format(self.name_sanitized)},
+                        ],
+                        "availability_mode": "all",
+                        "payload_available": "online",
+                        "payload_not_available": "offline",
+                        "state_topic": state_topic.format(self.name_sanitized),
+                        "value_template": f"{{{{ value_json.{entity['state_field']} if value_json is not undefined and value_json.{entity['state_field']} is not undefined else None }}}}",
+                        "unit_of_measurement": entity["unit_of_measurement"],
+                        "icon": entity["icon"],
+                        "device_class": entity["device_class"],
+                        "payload_on": "on",
+                        "payload_off": "off",
+                        "device": device_definition,
+                        "json_attributes_topic": None,
+                        "qos": 1,
+                    }
+                )
+                for entity in self.homeassistant_entities
+            ]
         )
 
     def poll(self, result_queue: Queue[Any]) -> bool:
@@ -231,10 +274,34 @@ class CPUMetrics(BaseMetric):
 
     """
 
-    _name = "cpu"
+    _name = "CPU"
     icon = "mdi:chip"
     unit_of_measurement = "%"
     state_field = "used"
+    homeassistant_entities = [
+        MetricEntities(
+            {
+                "name": f"CPU {f}",
+                "state_field": f,
+                "icon": "mdi:chip",
+                "unit_of_measurement": "%",
+                "device_class": None,
+            }
+        )
+        for f in [
+            "user",
+            "nice",
+            "system",
+            "idle",
+            "iowait",
+            "irq",
+            "softirq",
+            "steal",
+            "guest",
+            "guest_nice",
+            "used",
+        ]
+    ]
 
     interval: int
 
@@ -306,6 +373,36 @@ class VirtualMemoryMetrics(BaseMetric):
     device_class = "data_size"
     unit_of_measurement = "MB"
     state_field = "used"
+    homeassistant_entities = [
+        MetricEntities(
+            {
+                "name": "Virtual Memory",
+                "state_field": "percent",
+                "icon": "mdi:memory",
+                "unit_of_measurement": "%",
+                "device_class": None,
+            }
+        ),
+        *[
+            MetricEntities(
+                {
+                    "name": f"Virtual Memory {f}",
+                    "state_field": f,
+                    "icon": "mdi:memory",
+                    "unit_of_measurement": "MB",
+                    "device_class": "data_size",
+                }
+            )
+            for f in [
+                "total",
+                "available",
+                "used",
+                "free",
+                "active",
+                "inactive",
+            ]
+        ],
+    ]
 
     def poll(self, result_queue: Queue[Self]) -> bool:
         """Poll new data for the virtual memory metric.
@@ -370,6 +467,33 @@ class DiskUsageMetrics(BaseMetric):
         super().__init__()
         self.mountpoint = mountpoint
         self._name = self._name_template.format(mountpoint)
+        self.homeassistant_entities = [
+            MetricEntities(
+                {
+                    "name": self._name_template.format(mountpoint),
+                    "state_field": "percent",
+                    "icon": "mdi:harddisk",
+                    "unit_of_measurement": "%",
+                    "device_class": None,
+                }
+            ),
+            *[
+                MetricEntities(
+                    {
+                        "name": f"{self._name_template.format(mountpoint)} {f}",
+                        "state_field": f,
+                        "icon": "mdi:harddisk",
+                        "unit_of_measurement": "GB",
+                        "device_class": "data_size",
+                    }
+                )
+                for f in [
+                    "total",
+                    "used",
+                    "free",
+                ]
+            ],
+        ]
 
     def poll(self, result_queue: Queue[Self]) -> bool:
         """Poll new data for the virtual memory metric.
@@ -423,14 +547,14 @@ class NetworkMetricThread(BaseMetricThread):
         interval: int,
         nic: str,
     ):
-        """Initialize the cpu thread.
+        """Initialize the network thread.
 
         Parameters
         ----------
         result_queue: Queue[BaseMetric]
             The queue to put the metric into once the data is gathered
         metric
-            The cpu metric to gather data for
+            The network metric to gather data for
         interval
             The interval to gather data over
         nic
@@ -444,7 +568,7 @@ class NetworkMetricThread(BaseMetricThread):
         self.nic = nic
 
     def run(self) -> None:
-        """Run the cpu thread. Once data is gathered, it is put into the queue and the thread exits.
+        """Run the network thread. Once data is gathered, it is put into the queue and the thread exits.
 
         Raises
         ------
@@ -453,46 +577,44 @@ class NetworkMetricThread(BaseMetricThread):
 
         """
         try:
-            x = 0
-            interval = self.interval
-            tx_bytes = []
-            rx_bytes = []
-            prev_tx = 0
-            prev_rx = 0
-            base_tx = 0
-            base_rx = 0
-            while x < interval:
-                nics = psutil.net_io_counters(pernic=True)
-                if self.nic in nics:
-                    tx = nics[self.nic].bytes_sent
-                    rx = nics[self.nic].bytes_recv
-                    if tx < prev_tx:
-                        # TX counter rollover
-                        base_tx += prev_tx
-                    if rx < prev_rx:
-                        # RX counter rollover
-                        base_rx += prev_rx
-                    tx_bytes.append(base_tx + tx)
-                    rx_bytes.append(base_rx + rx)
-                    prev_tx = tx
-                    prev_rx = rx
-                time.sleep(1)
-                x += 1
-
+            start_tx = 0
+            start_rx = 0
+            # get initial counters
+            nics = psutil.net_io_counters(pernic=True)
             if self.nic in nics:
-                tx_rate_bytes_sec = np.average(np.diff(np.array(tx_bytes)))
-                tx_rate = tx_rate_bytes_sec / 125.0  # bytes/sec to kilobits/sec
-                rx_rate_bytes_sec = np.average(np.diff(np.array(rx_bytes)))
-                rx_rate = rx_rate_bytes_sec / 125.0  # bytes/sec to kilobits/sec
-
-                self.metric.polled_result = {
-                    "total_rate": int(tx_rate + rx_rate),
-                    "tx_rate": int(tx_rate),
-                    "rx_rate": int(rx_rate),
-                }
-                self.result_queue.put(self.metric)
+                start_tx = nics[self.nic].bytes_sent
+                start_rx = nics[self.nic].bytes_recv
             else:
                 metric_logger.warning("Network %s not available", self.nic)
+                return
+            time.sleep(self.interval)
+            # get counters after interval
+            nics = psutil.net_io_counters(pernic=True)
+            if self.nic in nics:
+                end_tx = nics[self.nic].bytes_sent
+                end_rx = nics[self.nic].bytes_recv
+            else:
+                metric_logger.warning("Network %s not available", self.nic)
+                return
+            # handle counter rollover by ignoring bytes from start_tx/start_rx to maxvalue
+            if end_tx >= start_tx:
+                diff_tx = end_tx - start_tx
+            else:
+                diff_tx = end_tx
+            if end_rx >= start_rx:
+                diff_rx = end_rx - start_rx
+            else:
+                diff_rx = end_rx
+            # calculate rate bytes/sec and convert bytes to kilobits/sec
+            tx_rate = diff_tx / self.interval / 125.0
+            rx_rate = diff_rx / self.interval / 125.0
+
+            self.metric.polled_result = {
+                "total_rate": int(tx_rate + rx_rate),
+                "tx_rate": int(tx_rate),
+                "rx_rate": int(rx_rate),
+            }
+            self.result_queue.put(self.metric)
         except Exception as ex:
             raise Linux2MqttMetricsException(
                 "Could not gather and publish network data"
@@ -542,6 +664,22 @@ class NetworkMetrics(BaseMetric):
         self.interval = interval
         self.nic = nic
         self._name = self._name_template.format(nic)
+        self.homeassistant_entities = [
+            MetricEntities(
+                {
+                    "name": f"{self._name_template.format(nic)} {f}",
+                    "state_field": f,
+                    "icon": "mdi:server-network",
+                    "unit_of_measurement": "kbit/s",
+                    "device_class": "data_rate",
+                }
+            )
+            for f in [
+                "total_rate",
+                "tx_rate",
+                "rx_rate",
+            ]
+        ]
 
         if interval < MIN_NET_INTERVAL:
             raise ValueError(
@@ -594,6 +732,22 @@ class NetConnectionMetrics(BaseMetric):
     device_class = ""
     unit_of_measurement = ""
     state_field = "count"
+    homeassistant_entities = [
+        MetricEntities(
+            {
+                "name": f"Network connections {f}",
+                "state_field": f,
+                "icon": "mdi:ip-network",
+                "unit_of_measurement": None,
+                "device_class": None,
+            }
+        )
+        for f in [
+            "total",
+            "ipv4",
+            "ipv6",
+        ]
+    ]
 
     def __init__(self, interval: int) -> None:
         """Extract local IPs for evaluation during poll.
@@ -611,7 +765,7 @@ class NetConnectionMetrics(BaseMetric):
 
         for snicaddrs in interface_addrs.values():
             for snicaddr in snicaddrs:
-                if snicaddr.family.value in (2, 10):
+                if snicaddr.family in (socket.AF_INET, socket.AF_INET6):
                     self.ips.add(snicaddr.address)
 
     def poll(self, result_queue: Queue[Self]) -> bool:
@@ -635,55 +789,57 @@ class NetConnectionMetrics(BaseMetric):
         """
         try:
             st = psutil.net_connections()
+
             listening_ports = {
-                x.laddr.port
+                addr_port(x.laddr)
                 for x in st
                 if x.status == "LISTEN"
-                and isinstance(x.laddr, addr)
-                and x.laddr.ip in ("0.0.0.0", "::")
+                and is_addr(x.laddr)
+                and addr_ip(x.laddr) in ("0.0.0.0", "::")
             }
 
+            established = [x for x in st if x.status == "ESTABLISHED"]
+
             self.polled_result = {
-                "count": len([x for x in st if x.status == "ESTABLISHED"]),
+                "count": len(established),  # deprecated
+                "total": len(established),
                 "ipv4": len(
                     [
                         x
-                        for x in st
-                        if x.family.value == 2
-                        and x.status == "ESTABLISHED"
-                        and isinstance(x.laddr, addr)
-                        and not x.laddr.ip.startswith("127.")
+                        for x in established
+                        if x.family == socket.AF_INET
+                        and is_addr(x.laddr)
+                        and not addr_ip(x.laddr).startswith("127.")
                     ]
                 ),
                 "ipv6": len(
                     [
                         x
-                        for x in st
-                        if x.family.value == 10
-                        and x.status == "ESTABLISHED"
-                        and isinstance(x.laddr, addr)
-                        and x.laddr.ip != "::1"
+                        for x in established
+                        if x.family == socket.AF_INET6
+                        and is_addr(x.laddr)
+                        and addr_ip(x.laddr) != "::1"
                     ]
                 ),
                 "listening_ports": list(listening_ports),
                 "outbound": [
-                    f"{x.raddr.ip}:{x.raddr.port}"
-                    for x in st
-                    if x.status == "ESTABLISHED"
-                    and isinstance(x.laddr, addr)
-                    and isinstance(x.raddr, addr)
-                    and x.laddr.ip in self.ips
-                    and x.raddr.ip not in ("::1", "127.0.0.1")
+                    f"{addr_ip(x.raddr)}:{addr_port(x.raddr)}"
+                    for x in established
+                    if is_addr(x.laddr)
+                    and is_addr(x.raddr)
+                    and addr_ip(x.laddr) in self.ips
+                    and addr_ip(x.raddr) not in ("127.0.0.1", "::1")
                 ],
                 "inbound": [
-                    f"{x.raddr.ip}:{x.raddr.port} -> {x.laddr.ip}:{x.laddr.port}"
-                    for x in st
-                    if x.status == "ESTABLISHED"
-                    and isinstance(x.laddr, addr)
-                    and isinstance(x.raddr, addr)
-                    and x.laddr.port in listening_ports
+                    f"{addr_ip(x.raddr)}:{addr_port(x.raddr)} -> "
+                    f"{addr_ip(x.laddr)}:{addr_port(x.laddr)}"
+                    for x in established
+                    if is_addr(x.laddr)
+                    and is_addr(x.raddr)
+                    and addr_port(x.laddr) in listening_ports
                 ],
             }
+
         except Exception as ex:
             raise Linux2MqttMetricsException(
                 "Could not gather and publish net connections"
@@ -702,17 +858,20 @@ class TempMetrics(BaseMetric):
 
     _name_template = "Thermal Zone ({}/{})"
     _device: str
-    _thermal_zone: str
+    _idx: int
+    _label: str
 
-    def __init__(self, device: str, thermal_zone: str):
+    def __init__(self, device: str, idx: int, label: str):
         """Initialize the thermal zone metric.
 
         Parameters
         ----------
         device
             The device
-        thermal_zone
-            The thermal zone
+        idx
+            The 0-based index of the thermal zone within the list of zones for this device
+        label
+            The label of the zone (can be empty)
 
         Raises
         ------
@@ -722,8 +881,26 @@ class TempMetrics(BaseMetric):
         """
         super().__init__()
         self._device = device
-        self._thermal_zone = thermal_zone
-        self._name = self._name_template.format(device, thermal_zone)
+        self._idx = idx
+        if not label:
+            # 1-based to match lm-sensors
+            label = f"temp{idx + 1}"
+        self._label = label
+        self._name = self._name_template.format(device, label)
+        self.homeassistant_entities = [
+            MetricEntities(
+                {
+                    "name": f"{self._name_template.format(device, label)} {f}",
+                    "state_field": f,
+                    "icon": "mdi:thermometer",
+                    "unit_of_measurement": "°C",
+                    "device_class": "temperature",
+                }
+            )
+            for f in [
+                "current",
+            ]
+        ]
 
     def poll(self, result_queue: Queue[Self]) -> bool:
         """Poll new data for the thermal zone metric.
@@ -745,18 +922,13 @@ class TempMetrics(BaseMetric):
 
         """
         try:
-            st = psutil.sensors_temperatures()  # type: ignore[attr-defined]
-            thermal_zone = next(
-                (
-                    item
-                    for item in st.get(self._device, [])
-                    if item.label == self._thermal_zone
-                ),
-                None,
-            )
+            st = psutil.sensors_temperatures()
+            dev = st.get(self._device)
+            assert dev
+            thermal_zone = dev[self._idx]
             assert thermal_zone
             self.polled_result = {
-                "label": thermal_zone.label,
+                "label": self._label,
                 "current": thermal_zone.current,
                 "high": thermal_zone.high,
                 "critical": thermal_zone.critical,
@@ -779,17 +951,20 @@ class FanSpeedMetrics(BaseMetric):
 
     _name_template = "Fan Speed ({}/{})"
     _device: str
-    _fan: str
+    _idx: int
+    _label: str
 
-    def __init__(self, device: str, fan: str):
+    def __init__(self, device: str, idx: int, label: str):
         """Initialize the fan speed metric.
 
         Parameters
         ----------
         device
             The device
-        fan
-            The fan
+        idx
+            The 0-based index of the fan within the list of fans for this device
+        label
+            The label of the fan (can be empty)
 
         Raises
         ------
@@ -799,11 +974,29 @@ class FanSpeedMetrics(BaseMetric):
         """
         super().__init__()
         self._device = device
-        self._fan = fan
-        self._name = self._name_template.format(device, fan)
+        self._idx = idx
+        if not label:
+            # 1-based to match lm-sensors
+            label = f"fan{idx + 1}"
+        self._label = label
+        self._name = self._name_template.format(device, label)
+        self.homeassistant_entities = [
+            MetricEntities(
+                {
+                    "name": f"{self._name_template.format(device, label)} {f}",
+                    "state_field": f,
+                    "icon": "mdi:fan",
+                    "unit_of_measurement": None,
+                    "device_class": None,
+                }
+            )
+            for f in [
+                "current",
+            ]
+        ]
 
     def poll(self, result_queue: Queue[Self]) -> bool:
-        """Poll new data for the thermal zone metric.
+        """Poll new data for the fan speed metric.
 
         Parameters
         ----------
@@ -822,14 +1015,13 @@ class FanSpeedMetrics(BaseMetric):
 
         """
         try:
-            st = psutil.sensors_fans()  # type: ignore[attr-defined]
-            fan = next(
-                (item for item in st.get(self._device, []) if item.label == self._fan),
-                None,
-            )
+            st = psutil.sensors_fans()
+            dev = st.get(self._device)
+            assert dev
+            fan = dev[self._idx]
             assert fan
             self.polled_result = {
-                "label": fan.label,
+                "label": self._label,
                 "current": fan.current,
                 "unit": "rpm",
             }
@@ -882,7 +1074,8 @@ class PackageUpdateMetricThread(BaseMetricThread):
             self.package_manager.update_if_needed()
             updates_available = self.package_manager.get_available_updates()
             self.metric.polled_result = {
-                "count": len(updates_available),
+                "count": len(updates_available),  # deprecated
+                "total": len(updates_available),
                 "packages": updates_available,
             }
             self.result_queue.put(self.metric)
@@ -906,6 +1099,17 @@ class PackageUpdateMetrics(BaseMetric):
     device_class = ""
     unit_of_measurement = ""
     state_field = "count"
+    homeassistant_entities = [
+        MetricEntities(
+            {
+                "name": "Package updates",
+                "state_field": "total",
+                "icon": "mdi:package-up",
+                "unit_of_measurement": None,
+                "device_class": None,
+            }
+        )
+    ]
 
     _name = "Package Updates"
     package_manager: PackageManager

@@ -10,17 +10,15 @@ name = "linux2mqtt"
 dynamic = ["version", "readme"]
 description = "Send your linux stats and and events to mqtt and discovery them in home assistant."
 authors = [
-  { name = "Cyrill Raccaud", email = "cyrill.raccaud+pypi@gmail.com" },
-  { name = "Adam Cooper" }
+  { name = "Cyrill Raccaud", email = "cyrill.raccaud+pypi@gmail.com" }
 ]
 dependencies = [
   "jsons",
   "psutil",
   "paho-mqtt",
-  "numpy",
   "typing-extensions"
 ]
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 
 classifiers = [
   "Programming Language :: Python :: 3",

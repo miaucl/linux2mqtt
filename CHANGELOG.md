@@ -1,5 +1,25 @@
 # CHANGELOG
 
+## DEPRECATED
+
+ This changelog is no longer maintained and will not be updated in future releases. Please refer to the [release notes](https://github.com/miaucl/linux2mqtt/releases/latest) on GitHub for the latest changes.
+
+## 1.6.0
+
+* Improve network statistics gathering while reducing cpu load @pe-pe
+
+## 1.5.1
+
+* Fix device_class for home assistant for network metrics @pe-pe
+
+## 1.5.0
+
+* Add home assistant option to disable attributes and only use entities
+
+## 1.4.1
+
+* Fix package manager cli default arg
+
 ## 1.4.0
 
 * Add package manager available updates (supported: apt,apk,yum)

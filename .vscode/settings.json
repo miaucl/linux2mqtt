@@ -13,7 +13,6 @@
     "mqtt",
     "mypy",
     "nics",
-    "numpy",
     "paho",
     "percpu",
     "pernic",
