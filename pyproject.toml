@@ -52,7 +52,7 @@ linux2mqtt = "linux2mqtt.linux2mqtt:main"
 
 [tool.ruff]
 
-target-version = "py312"
+target-version = "py312" # Python 3.12
 
 [tool.ruff.lint]
 select = [
