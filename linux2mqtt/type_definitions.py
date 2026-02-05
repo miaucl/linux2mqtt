@@ -18,6 +18,8 @@ class Linux2MqttConfig(TypedDict):
     ----------
     log_level
         Log verbosity
+    discovery
+        Enable MQTT discovery for Home Assistant and other platforms
     homeassistant_prefix
         MQTT discovery topic prefix
     homeassistant_disable_attributes
@@ -46,6 +48,7 @@ class Linux2MqttConfig(TypedDict):
     """
 
     log_level: str
+    discovery: list[str]
     homeassistant_prefix: str
     homeassistant_disable_attributes: bool
     linux2mqtt_hostname: str

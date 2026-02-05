@@ -66,7 +66,7 @@ class BaseMetric:
         """Initialize base class."""
         self.polled_result = None
 
-    def get_discovery(
+    def get_discovery_for_homeassistant(
         self,
         state_topic: str,
         linux2mqtt_availability_topic: str,
@@ -74,7 +74,7 @@ class BaseMetric:
         device_definition: LinuxDeviceEntry,
         disable_attributes: bool,
     ) -> list[LinuxEntry]:
-        """Get the discovery topic config data.
+        """Get the home assistant discovery topic config data.
 
         Parameters
         ----------
@@ -920,7 +920,7 @@ class TempMetrics(BaseMetric):
 
         """
         try:
-            st = psutil.sensors_temperatures()
+            st = psutil.sensors_temperatures()  # type: ignore[attr-defined]
             dev = st.get(self._device)
             assert dev
             thermal_zone = dev[self._idx]
@@ -1013,7 +1013,7 @@ class FanSpeedMetrics(BaseMetric):
 
         """
         try:
-            st = psutil.sensors_fans()
+            st = psutil.sensors_fans()  # type: ignore[attr-defined]
             dev = st.get(self._device)
             assert dev
             fan = dev[self._idx]
