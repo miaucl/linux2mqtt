@@ -62,6 +62,7 @@ from .metrics import (
 from .type_definitions import Linux2MqttConfig, LinuxDeviceEntry
 
 main_logger = logging.getLogger("linux2mqtt")
+mqtt_logger = logging.getLogger("linux2mqtt")
 
 
 class Linux2Mqtt:
@@ -155,8 +156,6 @@ class Linux2Mqtt:
             f"{self.cfg['mqtt_topic_prefix']}/{system_name_sanitized}/version"
         )
 
-        main_logger.setLevel(self.cfg["log_level"].upper())
-
         if not self.do_not_exit:
             main_logger.info("Register signal handlers for SIGINT and SIGTERM")
             signal.signal(signal.SIGTERM, self._signal_handler)
@@ -189,6 +188,7 @@ class Linux2Mqtt:
                 callback_api_version=paho.mqtt.enums.CallbackAPIVersion.VERSION2,
                 client_id=f"{self.cfg['mqtt_client_id']}_{uuid.uuid4().hex[:6]}",
             )
+            self.mqtt.enable_logger(mqtt_logger)
             if self.cfg["mqtt_user"] or self.cfg["mqtt_password"]:
                 self.mqtt.username_pw_set(
                     self.cfg["mqtt_user"], self.cfg["mqtt_password"]
@@ -530,24 +530,30 @@ class Linux2Mqtt:
                 x += 1
 
 
-def configure_logger(args: argparse.Namespace) -> None:
+def configure_logger(
+    logger: logging.Logger, verbosity: int, logdir: str | None
+) -> None:
     """Configure main logger.
 
     Parameters
     ----------
-    args
-        Parsed program arguments
+    logger
+        The logger to configure
+    verbosity
+        The verbosity level
+    logdir
+        The log directory
 
     """
-    if args.verbosity >= 5:
+    if verbosity >= 5:
         main_logger.setLevel(logging.DEBUG)
-    elif args.verbosity == 4:
+    elif verbosity == 4:
         main_logger.setLevel(logging.INFO)
-    elif args.verbosity == 3:
+    elif verbosity == 3:
         main_logger.setLevel(logging.WARNING)
-    elif args.verbosity == 2:
+    elif verbosity == 2:
         main_logger.setLevel(logging.ERROR)
-    elif args.verbosity == 1:
+    elif verbosity == 1:
         main_logger.setLevel(logging.CRITICAL)
 
     # Configure logger
@@ -560,21 +566,23 @@ def configure_logger(args: argparse.Namespace) -> None:
     console_handler.setFormatter(formatter)
     main_logger.addHandler(console_handler)
 
-    if args.logdir:
+    if logdir:
         try:
-            logdir = Path(args.logdir)
-            absolute_logdir = logdir.resolve() if not logdir.is_absolute() else logdir
+            logdirpath = Path(logdir)
+            absolute_logdir = (
+                logdirpath.resolve() if not logdirpath.is_absolute() else logdirpath
+            )
             absolute_logdir.mkdir(parents=True, exist_ok=True)
-            log_file = path.join(absolute_logdir, "linux2mqtt.log")
+            log_file = path.join(absolute_logdir, f"linux2mqtt-{logger.name}.log")
             file_handler = RotatingFileHandler(
                 log_file, maxBytes=1_000_000, backupCount=5
             )
             file_handler.setFormatter(formatter)
-            main_logger.addHandler(file_handler)
+            logger.addHandler(file_handler)
         except Exception as ex:
-            main_logger.warning(
+            logger.warning(
                 "Failed to initialize logging to directory %s : %s",
-                args.logdir,
+                logdir,
                 str(ex),
             )
 
@@ -739,7 +747,8 @@ def main() -> None:
             "Cannot start due to bad config data type"
         ) from ex
 
-    configure_logger(args)
+    configure_logger(main_logger, args.verbosity, args.logdir)
+    configure_logger(mqtt_logger, args.verbosity, args.logdir)
 
     log_level = ["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG", "DEBUG"][
         args.verbosity
