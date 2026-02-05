@@ -5,6 +5,7 @@ import socket
 from .type_definitions import Linux2MqttConfig
 
 LOG_LEVEL_DEFAULT = "DEBUG"
+DISCOVERY_DEFAULT = ["homeassistant"]
 HOMEASSISTANT_PREFIX_DEFAULT = "homeassistant"
 HOMEASSISTANT_DISABLE_ATTRIBUTES_DEFAULT = False
 MQTT_CLIENT_ID_DEFAULT = "linux2mqtt"
@@ -32,6 +33,7 @@ MAX_CONNECTIONS_INTERVAL = 360
 DEFAULT_CONFIG = Linux2MqttConfig(
     {
         "log_level": LOG_LEVEL_DEFAULT,
+        "discovery": DISCOVERY_DEFAULT,
         "homeassistant_prefix": HOMEASSISTANT_PREFIX_DEFAULT,
         "homeassistant_disable_attributes": HOMEASSISTANT_DISABLE_ATTRIBUTES_DEFAULT,
         "linux2mqtt_hostname": f"{socket.gethostname()}_{MQTT_CLIENT_ID_DEFAULT}",

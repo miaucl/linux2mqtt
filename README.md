@@ -132,7 +132,19 @@ Enabling this option will cause increased network traffic in order to update pac
 
 `linux2mqtt` runs as a foreground task at the command prompt. In order to run in the program in the background, or automatically at boot, the process has to be daemonized. The easiest way to do this is on a UNIX-like OS (Linux/BSD) is with [Supervisor](http://supervisord.org/) or [systemd](https://systemd.io). Example Supervisor and service configuration file for `linux2mqtt` is included in the [/contrib/](https://github.com/miaucl/linux2mqtt/blob/master/contrib/) directory.
 
+## Discovery
+
+It is possible to enable/disable discovery of the metrics.
+
+`linux2mqtt --name Server1 -vvvvv --discovery "<your_discovery>"`
+
+Setting it to an empty list will deactivate discovery, per default homeassistant is active.
+
+`linux2mqtt --name Server1 -vvvvv --discovery ""`
+
 ## Using with Home Assistant (HA)
+
+`linux2mqtt --name Server1 -vvvvv --discovery "homeassistant"`
 
 Once `linux2mqtt` is collecting data and publishing it to MQTT, it's rather trivial to use the data in Home Assistant.
 
