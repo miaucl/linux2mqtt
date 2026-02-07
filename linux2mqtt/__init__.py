@@ -1,12 +1,13 @@
 """linux2mqtt package."""
 
-__version__ = "1.8.2"
+__version__ = "1.9.0"
 
 from .const import (
     DEFAULT_CONFIG,
     DEFAULT_CPU_INTERVAL,
     DEFAULT_INTERVAL,
     DEFAULT_NET_INTERVAL,
+    DISCOVERY_DEFAULT,
     HOMEASSISTANT_PREFIX_DEFAULT,
     LOG_LEVEL_DEFAULT,
     MAX_CPU_INTERVAL,
@@ -86,6 +87,7 @@ __all__ = [
     "DiskUsageMetrics",
     "TempMetrics",
     "FanSpeedMetrics",
+    "DISCOVERY_DEFAULT",
     "HOMEASSISTANT_PREFIX_DEFAULT",
     "MQTT_CLIENT_ID_DEFAULT",
     "MQTT_PORT_DEFAULT",

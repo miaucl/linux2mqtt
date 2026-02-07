@@ -29,6 +29,7 @@ from .const import (
     DEFAULT_INTERVAL,
     DEFAULT_NET_INTERVAL,
     DEFAULT_PACKAGE_INTERVAL,
+    DISCOVERY_DEFAULT,
     HOMEASSISTANT_DISABLE_ATTRIBUTES_DEFAULT,
     HOMEASSISTANT_PREFIX_DEFAULT,
     MAX_CONNECTIONS_INTERVAL,
@@ -63,10 +64,15 @@ from .metrics import (
 )
 from .type_definitions import Linux2MqttConfig, LinuxDeviceEntry
 
+<<<<<<< HEAD
 
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
 main_logger = logging.getLogger("linux2mqtt")
+=======
+main_logger = logging.getLogger("main")
+mqtt_logger = logging.getLogger("mqtt")
+>>>>>>> master
 
 
 class Linux2Mqtt:
@@ -78,9 +84,9 @@ class Linux2Mqtt:
         The version of linux2mqtt
     cfg
         The config for linux2mqtt
-    discovery_binary_sensor_topic
+    homeassistant_discovery_binary_sensor_topic
         Topic template for a binary sensor
-    discovery_sensor_topic
+    homeassistant_discovery_sensor_topic
         Topic template for a nary sensor
     status_topic
         Topic template for a status value
@@ -106,12 +112,13 @@ class Linux2Mqtt:
 
     mqtt: paho.mqtt.client.Client
 
-    discovery_binary_sensor_topic: str
-    discovery_sensor_topic: str
     status_topic: str
     version_topic: str
     state_topic: str
     availability_topic: str
+
+    homeassistant_discovery_binary_sensor_topic: str
+    homeassistant_discovery_sensor_topic: str
 
     deferred_metrics_queue: Queue[BaseMetric] = Queue(maxsize=MAX_QUEUE_SIZE)
 
@@ -145,8 +152,8 @@ class Linux2Mqtt:
 
         system_name_sanitized = sanitize(self.cfg["linux2mqtt_hostname"])
 
-        self.discovery_binary_sensor_topic = f"{self.cfg['homeassistant_prefix']}/binary_sensor/{self.cfg['mqtt_topic_prefix']}/{system_name_sanitized}_{{}}/config"
-        self.discovery_sensor_topic = f"{self.cfg['homeassistant_prefix']}/sensor/{self.cfg['mqtt_topic_prefix']}/{system_name_sanitized}_{{}}/config"
+        self.homeassistant_discovery_binary_sensor_topic = f"{self.cfg['homeassistant_prefix']}/binary_sensor/{self.cfg['mqtt_topic_prefix']}/{system_name_sanitized}_{{}}/config"
+        self.homeassistant_discovery_sensor_topic = f"{self.cfg['homeassistant_prefix']}/sensor/{self.cfg['mqtt_topic_prefix']}/{system_name_sanitized}_{{}}/config"
         self.availability_topic = (
             f"{self.cfg['mqtt_topic_prefix']}/{system_name_sanitized}/{{}}/availability"
         )
@@ -159,8 +166,6 @@ class Linux2Mqtt:
         self.version_topic = (
             f"{self.cfg['mqtt_topic_prefix']}/{system_name_sanitized}/version"
         )
-
-        main_logger.setLevel(self.cfg["log_level"].upper())
 
         if not self.do_not_exit:
             main_logger.info("Register signal handlers for SIGINT and SIGTERM")
@@ -194,6 +199,7 @@ class Linux2Mqtt:
                 callback_api_version=paho.mqtt.enums.CallbackAPIVersion.VERSION2,
                 client_id=f"{self.cfg['mqtt_client_id']}_{uuid.uuid4().hex[:6]}",
             )
+            self.mqtt.enable_logger(mqtt_logger)
             if self.cfg["mqtt_user"] or self.cfg["mqtt_password"]:
                 self.mqtt.username_pw_set(
                     self.cfg["mqtt_user"], self.cfg["mqtt_password"]
@@ -426,8 +432,21 @@ class Linux2Mqtt:
             If anything with the mqtt connection goes wrong
 
         """
+        discovery_platforms = self.cfg.get("discovery", [])
+        if "homeassistant" in discovery_platforms:
+            self._create_discovery_topics_for_homeassistant()
+
+    def _create_discovery_topics_for_homeassistant(self) -> None:
+        """Create discovery topics for homeassistant for all metrics.
+
+        Raises
+        ------
+        Linux2MqttConnectionException
+            If anything with the mqtt connection goes wrong
+
+        """
         for metric in self.metrics:
-            discovery_entries = metric.get_discovery(
+            discovery_entries = metric.get_discovery_for_homeassistant(
                 self.state_topic,
                 self.status_topic,
                 self.availability_topic,
@@ -435,9 +454,9 @@ class Linux2Mqtt:
                 self.cfg["homeassistant_disable_attributes"],
             )
             discovery_topic = (
-                self.discovery_sensor_topic
+                self.homeassistant_discovery_sensor_topic
                 if metric.ha_sensor_type == "sensor"
-                else self.discovery_binary_sensor_topic
+                else self.homeassistant_discovery_binary_sensor_topic
             )
             for discovery_entry in discovery_entries:
                 self._mqtt_send(
@@ -535,51 +554,59 @@ class Linux2Mqtt:
                 x += 1
 
 
-def configure_logger(args: argparse.Namespace) -> None:
+def configure_logger(
+    logger: logging.Logger, verbosity: int, logdir: str | None
+) -> None:
     """Configure main logger.
 
     Parameters
     ----------
-    args
-        Parsed program arguments
+    logger
+        The logger to configure
+    verbosity
+        The verbosity level
+    logdir
+        The log directory
 
     """
-    if args.verbosity >= 5:
-        main_logger.setLevel(logging.DEBUG)
-    elif args.verbosity == 4:
-        main_logger.setLevel(logging.INFO)
-    elif args.verbosity == 3:
-        main_logger.setLevel(logging.WARNING)
-    elif args.verbosity == 2:
-        main_logger.setLevel(logging.ERROR)
-    elif args.verbosity == 1:
-        main_logger.setLevel(logging.CRITICAL)
+    if verbosity >= 5:
+        logger.setLevel(logging.DEBUG)
+    elif verbosity == 4:
+        logger.setLevel(logging.INFO)
+    elif verbosity == 3:
+        logger.setLevel(logging.WARNING)
+    elif verbosity == 2:
+        logger.setLevel(logging.ERROR)
+    elif verbosity == 1:
+        logger.setLevel(logging.CRITICAL)
 
     # Configure logger
-    main_logger.propagate = False
+    logger.propagate = False
 
     log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     formatter = logging.Formatter(log_format)
 
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(formatter)
-    main_logger.addHandler(console_handler)
+    logger.addHandler(console_handler)
 
-    if args.logdir:
+    if logdir:
         try:
-            logdir = Path(args.logdir)
-            absolute_logdir = logdir.resolve() if not logdir.is_absolute() else logdir
+            logdirpath = Path(logdir)
+            absolute_logdir = (
+                logdirpath.resolve() if not logdirpath.is_absolute() else logdirpath
+            )
             absolute_logdir.mkdir(parents=True, exist_ok=True)
-            log_file = path.join(absolute_logdir, "linux2mqtt.log")
+            log_file = path.join(absolute_logdir, f"linux2mqtt-{logger.name}.log")
             file_handler = RotatingFileHandler(
                 log_file, maxBytes=1_000_000, backupCount=5
             )
             file_handler.setFormatter(formatter)
-            main_logger.addHandler(file_handler)
+            logger.addHandler(file_handler)
         except Exception as ex:
-            main_logger.warning(
+            logger.warning(
                 "Failed to initialize logging to directory %s : %s",
-                args.logdir,
+                logdir,
                 str(ex),
             )
 
@@ -730,9 +757,20 @@ def main() -> None:
         choices=range(MIN_PACKAGE_INTERVAL, MAX_PACKAGE_INTERVAL),
     )
     parser.add_argument(
+<<<<<<< HEAD
         "--harddrives",
         help="Publish hard drive stats if available",
         action="store_true",
+=======
+        "--discovery",
+        default=None,
+        help=f"Discovery platforms enabled (default: {DISCOVERY_DEFAULT})",
+        type=str,
+        action="append",
+        nargs="?",
+        const="",
+        metavar="PLATFORM",
+>>>>>>> master
     )
     parser.add_argument(
         "--logdir",
@@ -749,7 +787,8 @@ def main() -> None:
             "Cannot start due to bad config data type"
         ) from ex
 
-    configure_logger(args)
+    configure_logger(main_logger, args.verbosity, args.logdir)
+    configure_logger(mqtt_logger, args.verbosity, args.logdir)
 
     log_level = ["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG", "DEBUG"][
         args.verbosity
@@ -757,6 +796,7 @@ def main() -> None:
     cfg = Linux2MqttConfig(
         {
             "log_level": log_level,
+            "discovery": args.discovery or DISCOVERY_DEFAULT,
             "homeassistant_prefix": args.homeassistant_prefix,
             "homeassistant_disable_attributes": args.homeassistant_disable_attributes,
             "linux2mqtt_hostname": args.name,
@@ -804,14 +844,14 @@ def main() -> None:
             stats.add_metric(net)
 
     if args.temp:
-        st = psutil.sensors_temperatures()
+        st = psutil.sensors_temperatures()  # type: ignore[attr-defined]
         for device in st:
             for idx, thermal_zone in enumerate(st[device]):
                 tm = TempMetrics(device=device, idx=idx, label=thermal_zone.label)
                 stats.add_metric(tm)
 
     if args.fan:
-        fans = psutil.sensors_fans()
+        fans = psutil.sensors_fans()  # type: ignore[attr-defined]
         for device in fans:
             for idx, fan in enumerate(fans[device]):
                 fm = FanSpeedMetrics(device=device, idx=idx, label=fan.label)
