@@ -5,9 +5,8 @@ import argparse
 import json
 import logging
 from logging.handlers import RotatingFileHandler
-from os import geteuid, path
+from os import geteuid, path, listdir
 from pathlib import Path
-import os
 import platform
 from queue import Empty, Queue
 import signal
@@ -48,7 +47,7 @@ from .const import (
     MQTT_QOS_DEFAULT,
     MQTT_TIMEOUT_DEFAULT,
 )
-from .exceptions import HardDriveIDException, Linux2MqttConfigException, Linux2MqttConnectionException
+from .exceptions import HardDriveException, Linux2MqttConfigException, Linux2MqttConnectionException
 from .helpers import clean_for_discovery, sanitize
 from .metrics import (
     BaseMetric,
@@ -64,16 +63,8 @@ from .metrics import (
 )
 from .type_definitions import Linux2MqttConfig, LinuxDeviceEntry
 
-<<<<<<< HEAD
-
-logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-
-main_logger = logging.getLogger("linux2mqtt")
-=======
 main_logger = logging.getLogger("main")
 mqtt_logger = logging.getLogger("mqtt")
->>>>>>> master
-
 
 class Linux2Mqtt:
     """linux2mqtt class.
@@ -757,11 +748,11 @@ def main() -> None:
         choices=range(MIN_PACKAGE_INTERVAL, MAX_PACKAGE_INTERVAL),
     )
     parser.add_argument(
-<<<<<<< HEAD
         "--harddrives",
         help="Publish hard drive stats if available",
         action="store_true",
-=======
+    )
+    parser.add_argument(
         "--discovery",
         default=None,
         help=f"Discovery platforms enabled (default: {DISCOVERY_DEFAULT})",
@@ -770,7 +761,6 @@ def main() -> None:
         nargs="?",
         const="",
         metavar="PLATFORM",
->>>>>>> master
     )
     parser.add_argument(
         "--logdir",
@@ -864,13 +854,13 @@ def main() -> None:
         stats.add_metric(package_updates)
 
     if args.harddrives:
-        for drive in os.listdir("/dev/disk/by-id/"):
+        for drive in listdir("/dev/disk/by-id/"):
             try:
                 harddrive = HardDriveMetrics(drive)
             # harddrive = get_hard_drive(drive)
                 if harddrive:
                     stats.add_metric(harddrive)
-            except HardDriveIDException:
+            except HardDriveException:
                 pass
 
     if not (

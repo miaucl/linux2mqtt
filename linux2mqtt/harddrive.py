@@ -8,7 +8,7 @@ from subprocess import DEVNULL, PIPE, STDOUT, Popen, run
 from time import time
 import re
 
-from .exceptions import HardDriveException, HardDriveIDException, Linux2MqttException
+from .exceptions import HardDriveException, Linux2MqttException
 
 
 class HardDrive:
@@ -213,6 +213,5 @@ def get_hard_drive(device_name:str) -> HardDrive:
     elif r2.match(device_name):
         return NVME(device_name)
     else:
-        raise HardDriveIDException("Harddrive ID not supported")
+        raise HardDriveException("Harddrive ID not supported")
     
-
