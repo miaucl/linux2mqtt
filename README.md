@@ -118,6 +118,12 @@ Enabling this option will cause increased network traffic in order to update pac
 
 `linux2mqtt --name Server1 -vvvvv --packages=7200` will search for available updates every 2 hours
 
+### Hard Drives
+
+`linux2mqtt` can publish the status of all harddrives using the `harddrives` option. Each hard drive will present as a separate sensor in Home Assistant. The sensor state reports the harddrive status based on a the smartctl report, which generates a score. Additional data is accessible as state attributes on each sensor.
+
+`linux2mqtt --name Server1 -vvvvv --interval 60 --harddrives`
+
 ## Logging
 
 `linux2mqtt` can log to a directory in addition to the console using the `--logdir` parameter. The specified directory can be absolute or relative and is created if it doesn't exist. The verbosity parameter applies to file logging and the log file size is limited to 1M bytes and 5 previous files are kept.

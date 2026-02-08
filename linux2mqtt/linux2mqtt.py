@@ -857,7 +857,6 @@ def main() -> None:
         for drive in listdir("/dev/disk/by-id/"):
             try:
                 harddrive = HardDriveMetrics(drive)
-            # harddrive = get_hard_drive(drive)
                 if harddrive:
                     stats.add_metric(harddrive)
             except HardDriveException:

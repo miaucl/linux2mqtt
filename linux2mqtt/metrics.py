@@ -1216,7 +1216,6 @@ class HardDriveMetricThread(BaseMetricThread):
             self.metric.polled_result = {
                 **self.harddrive.attributes,  # type: ignore[unused-ignore]
             }
-            # self.metric._name = self.harddrive.attributes['model_name']
             self.result_queue.put(self.metric)
         except Exception as ex:
             raise Linux2MqttMetricsException(
@@ -1227,7 +1226,6 @@ class HardDriveMetrics(BaseMetric):
     """Hard Drive metric."""
 
     icon = "mdi:harddisk"
-    device_class = "" # TODO See if I can have categories for this
     unit_of_measurement = ""
     state_field = "status"
 

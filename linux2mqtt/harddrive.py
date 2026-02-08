@@ -30,7 +30,6 @@ class HardDrive:
         
         """
         self.device_id = device_id
-        # self._name = self._name = self._name_template.format(device_) Use the device name from smartctl for the device name
 
         pass
 
@@ -51,9 +50,6 @@ class HardDrive:
             
             raw_json_data = json.loads(stdout)
             
-        # output  = subprocess.run(command, capture_output=True)
-
-        # raw_json_data = json.loads(output.stdout)
         self._attributes = raw_json_data
 
     def parse_attributes(self):
@@ -66,7 +62,7 @@ class HardDrive:
         raise Linux2MqttException from NotImplementedError
     
     def get_status(self):
-        # Classification
+        # Arbitrary Classification Set by developer
         if self.score <= 10:
             self.status = "HEALTHY"
         elif self.score <= 20:
@@ -121,13 +117,6 @@ class SataDrive(HardDrive):
         score += self.attributes.get('Reported Uncorrectable Errors',0) * 2
         score += self.attributes.get('Command Timeout',0) * 1.5
         score += min(self.attributes.get('UDMA CRC Error Count',0), 10)
-
-        # SMART CTL isnt consistent enough to come up with a percentage used for SSDs....
-        # if 'percent_used' in attributes:
-        #     if attributes['percent_used'] > 90:
-        #         score += 30
-        #     elif attributes['percent_used'] > 80:
-        #         score += 10
 
         self.score = score
 
@@ -203,7 +192,6 @@ def get_hard_drive(device_name:str) -> HardDrive:
 
     ata_regex = "^ata.*(?<!part\d)$"
     nvme_regex = "^nvme-eui.*(?<!part\d)$"
-    # potential_disks = os.listdir("/dev/disk/by-id/")
 
     r1 = re.compile(ata_regex)
     r2 = re.compile(nvme_regex)
