@@ -87,22 +87,22 @@ class SataDrive(HardDrive):
             ("UDMA CRC Error Count", 199),
         ]
 
-        self.attributes["Model Name"] = self._attributes["model_name"]  # type: ignore
-        self.attributes["Device"] = self._attributes["device"]["name"]  # type: ignore
+        self.attributes["Model Name"] = self._attributes["model_name"]  # type: ignore[index]
+        self.attributes["Device"] = self._attributes["device"]["name"]  # type: ignore[index]
         self.attributes["Size TB"] = (
-            self._attributes["user_capacity"]["bytes"] / 1000000000000  # type: ignore
-        )  # type: ignore
-        self.attributes["Temperature"] = self._attributes["temperature"]["current"]  # type: ignore
+            self._attributes["user_capacity"]["bytes"] / 1000000000000  # type: ignore[index]
+        )  # type: ignore[index]
+        self.attributes["Temperature"] = self._attributes["temperature"]["current"]  # type: ignore[index]
         self.attributes["Smart status"] = (
-            "Healthy" if self._attributes["smart_status"]["passed"] else "Failed"  # type: ignore
-        )  # type: ignore
-        self.attributes["Power On Time"] = self._attributes["power_on_time"]["hours"]  # type: ignore
-        self.attributes["Power Cycle Count"] = self._attributes["power_cycle_count"]  # type: ignore
+            "Healthy" if self._attributes["smart_status"]["passed"] else "Failed"  # type: ignore[index]
+        )  # type: ignore[index]
+        self.attributes["Power On Time"] = self._attributes["power_on_time"]["hours"]  # type: ignore[index]
+        self.attributes["Power Cycle Count"] = self._attributes["power_cycle_count"]  # type: ignore[index]
 
         new_data = {
             item["id"]: item
-            for item in self._attributes["ata_smart_attributes"]["table"]  # type: ignore
-        }  # type: ignore
+            for item in self._attributes["ata_smart_attributes"]["table"]  # type: ignore[index]
+        }  # type: ignore[index]
         for name, key in ata_smart_attributes:
             tmp = new_data[key]["raw"]["value"] if new_data.get(key) else None
             if tmp is not None:
@@ -152,18 +152,18 @@ class NVME(HardDrive):
             "available_spare_threshold",
         ]
 
-        self.attributes["Model Name"] = self._attributes["model_name"]  # type: ignore
-        self.attributes["Device"] = self._attributes["device"]["name"]  # type: ignore
+        self.attributes["Model Name"] = self._attributes["model_name"]  # type: ignore[index]
+        self.attributes["Device"] = self._attributes["device"]["name"]  # type: ignore[index]
         self.attributes["Size TB"] = (
-            self._attributes["user_capacity"]["bytes"] / 1000000000000  # type: ignore
-        )  # type: ignore
-        self.attributes["Temperature"] = self._attributes["temperature"]["current"]  # type: ignore
+            self._attributes["user_capacity"]["bytes"] / 1000000000000  # type: ignore[index]
+        )  # type: ignore[index]
+        self.attributes["Temperature"] = self._attributes["temperature"]["current"]  # type: ignore[index]
         self.attributes["Smart status"] = (
-            "Healthy" if self._attributes["smart_status"]["passed"] else "Failed"  # type: ignore
-        )  # type: ignore
+            "Healthy" if self._attributes["smart_status"]["passed"] else "Failed"  # type: ignore[index]
+        )  # type: ignore[index]
 
         for key in nvme_smart_attributes:
-            tmp = self._attributes["nvme_smart_health_information_log"].get(key)  # type: ignore
+            tmp = self._attributes["nvme_smart_health_information_log"].get(key)  # type: ignore[index]
             if tmp is not None:
                 self.attributes[key] = tmp
 
