@@ -5,7 +5,7 @@ import argparse
 import json
 import logging
 from logging.handlers import RotatingFileHandler
-from os import geteuid, path, listdir
+from os import geteuid, listdir, path
 from pathlib import Path
 import platform
 from queue import Empty, Queue
@@ -47,24 +47,29 @@ from .const import (
     MQTT_QOS_DEFAULT,
     MQTT_TIMEOUT_DEFAULT,
 )
-from .exceptions import HardDriveException, Linux2MqttConfigException, Linux2MqttConnectionException
+from .exceptions import (
+    HardDriveException,
+    Linux2MqttConfigException,
+    Linux2MqttConnectionException,
+)
 from .helpers import clean_for_discovery, sanitize
 from .metrics import (
     BaseMetric,
     CPUMetrics,
     DiskUsageMetrics,
     FanSpeedMetrics,
+    HardDriveMetrics,
     NetConnectionMetrics,
     NetworkMetrics,
     PackageUpdateMetrics,
     TempMetrics,
     VirtualMemoryMetrics,
-    HardDriveMetrics,
 )
 from .type_definitions import Linux2MqttConfig, LinuxDeviceEntry
 
 main_logger = logging.getLogger("main")
 mqtt_logger = logging.getLogger("mqtt")
+
 
 class Linux2Mqtt:
     """linux2mqtt class.

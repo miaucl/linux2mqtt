@@ -23,10 +23,10 @@ from .exceptions import (
     Linux2MqttMetricsException,
     NoPackageManagerFound,
 )
+from .harddrive import HardDrive, get_hard_drive
 from .helpers import addr_ip, addr_port, is_addr, sanitize
 from .package_manager import PackageManager, get_package_manager
 from .type_definitions import LinuxDeviceEntry, LinuxEntry, MetricEntities, SensorType
-from .harddrive import HardDrive, get_hard_drive
 
 metric_logger = logging.getLogger("metrics")
 
@@ -1178,6 +1178,7 @@ class PackageUpdateMetrics(BaseMetric):
         th.start()
         return True  # Expect a deferred result
 
+
 class HardDriveMetricThread(BaseMetricThread):
     """Hard Drive metric thread."""
 
@@ -1211,7 +1212,6 @@ class HardDriveMetricThread(BaseMetricThread):
 
         """
         try:
-            # 
             self.harddrive.parse_attributes()
             self.metric.polled_result = {
                 **self.harddrive.attributes,  # type: ignore[unused-ignore]
@@ -1221,7 +1221,8 @@ class HardDriveMetricThread(BaseMetricThread):
             raise Linux2MqttMetricsException(
                 f"Could not gather and publish hard drive data {self.metric._name}"
             ) from ex
-        
+
+
 class HardDriveMetrics(BaseMetric):
     """Hard Drive metric."""
 
@@ -1256,10 +1257,8 @@ class HardDriveMetrics(BaseMetric):
             raise Linux2MqttException(
                 "Failed to find a suitable hard drive type. Currently supported are: Hard Disk and NVME"
             ) from ex
-        
-        
 
-    def poll(self, result_queue: Queue[Self]) -> bool:
+    def poll(self, result_queue: Queue[BaseMetric]) -> bool:
         """Poll new data for the hard drive metric.
 
         Parameters
@@ -1286,10 +1285,7 @@ class HardDriveMetrics(BaseMetric):
             ) from e
         self.result_queue = result_queue
         th = HardDriveMetricThread(
-            result_queue=result_queue, 
-            metric=self,
-            harddrive=self.harddrive
-
+            result_queue=result_queue, metric=self, harddrive=self.harddrive
         )
         th.daemon = True
         th.start()
