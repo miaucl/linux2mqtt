@@ -152,7 +152,7 @@ A few assumptions:
 
 * **Home Assistant is already configured to use a MQTT broker.** Setting up MQTT and HA is beyond the scope of this documentation. However, there are a lot of great tutorials on YouTube. An external broker (or as add-on) like [Mosquitto](https://mosquitto.org/) will need to be installed and the HA MQTT integration configured.
 * **The HA MQTT integration is configured to use `homeassistant` as the MQTT autodiscovery prefix.** This is the default for the integration and also the default for `linux2mqtt`. If you have changed this from the default, use the `--homeassistant-prefix` parameter to specify the correct one.
-* **You're not using TLS to connect to the MQTT broker.** Currently `linux2mqtt` only works with unencrypted connections. Username / password authentication can be specified with the `--username` and `--password` parameters or via Enviroment Variables: `MQTT_USER` and `MQTT_PASSWORD`, but TLS encryption is not yet supported.
+* **You're not using TLS to connect to the MQTT broker.** Currently `linux2mqtt` only works with unencrypted connections. Username / password authentication can be specified with the `--username` and `--password` parameters or via enviroment variables `MQTT_USER` and `MQTT_PASSWORD`, but TLS encryption is not yet supported.
 
 Using the default prefix and a system name of `NUC` (the name of the server), the following state can be found in the "States" section of Developer Tools in HA:
 
