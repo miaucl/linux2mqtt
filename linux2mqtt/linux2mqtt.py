@@ -5,7 +5,7 @@ import argparse
 import json
 import logging
 from logging.handlers import RotatingFileHandler
-from os import geteuid, path
+from os import geteuid, path, getenv
 from pathlib import Path
 import platform
 from queue import Empty, Queue
@@ -624,7 +624,10 @@ def main() -> None:
     )
     parser.add_argument(
         "--host",
-        default="",
+        default=getenv(
+            'MQTT_HOST',
+            default=""
+        ),
         help="Hostname or IP address of the MQTT broker (default: localhost)",
     )
     parser.add_argument(
@@ -640,12 +643,18 @@ def main() -> None:
     )
     parser.add_argument(
         "--username",
-        default=None,
+        default=getenv(
+            'MQTT_USER',
+            default=None
+        ),
         help="Username for MQTT broker authentication (default: None)",
     )
     parser.add_argument(
         "--password",
-        default=None,
+        default=getenv(
+            'MQTT_PASSWORD',
+            default=None
+        ),
         help="Password for MQTT broker authentication (default: None)",
     )
     parser.add_argument(
