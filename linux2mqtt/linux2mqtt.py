@@ -16,6 +16,7 @@ from threading import Event
 import time
 from typing import Any
 import uuid
+import ssl
 
 import paho.mqtt.client
 import paho.mqtt.enums
@@ -195,6 +196,27 @@ class Linux2Mqtt:
                 self.mqtt.username_pw_set(
                     self.cfg["mqtt_user"], self.cfg["mqtt_password"]
                 )
+            mqtt_tls_ca = self.cfg.get("mqtt_tls_ca")
+            mqtt_tls_cert = self.cfg.get("mqtt_tls_cert")
+            mqtt_tls_key = self.cfg.get("mqtt_tls_key")
+            mqtt_tls_insecure = self.cfg.get("mqtt_tls_insecure", False)
+
+            if mqtt_tls_ca:
+                mqtt_logger.info(
+                    "Enabling MQTT TLS with ca=%s cert=%s key=%s insecure=%s",
+                    mqtt_tls_ca,
+                    mqtt_tls_cert,
+                    mqtt_tls_key,
+                    mqtt_tls_insecure,
+                )
+
+                self.mqtt.tls_set(
+                    ca_certs=mqtt_tls_ca,
+                    certfile=mqtt_tls_cert,
+                    keyfile=mqtt_tls_key,
+                    tls_version=ssl.PROTOCOL_TLSv1_2,
+                )
+                self.mqtt.tls_insecure_set(mqtt_tls_insecure)            
             self.mqtt.on_connect = self._on_connect
             self.mqtt.on_connect_fail = self._on_connect_fail
             self.mqtt.on_disconnect = self._on_disconnect
@@ -763,6 +785,34 @@ def main() -> None:
         help="Enables logging to specified directory (default: None)",
     )
 
+    parser.add_argument(
+        "--tls-ca",
+        default=None,
+        help="Path to CA certificate file for MQTT TLS.",
+    )
+
+    parser.add_argument(
+        "--tls-cert",
+        default=None,
+        help="Path to client certificate file for MQTT TLS (optional).",
+    )
+
+    parser.add_argument(
+        "--tls-key",
+        default=None,
+        help="Path to client key file for MQTT TLS (optional).",
+    )
+
+    parser.add_argument(
+        "--tls-insecure",
+        nargs="?",
+        type=bool,
+        const=True,
+        default=False,
+        help="Disable TLS hostname verification (for testing only).",
+    )
+
+
     try:
         args = parser.parse_args()
     except argparse.ArgumentError as ex:
@@ -794,6 +844,10 @@ def main() -> None:
             "mqtt_topic_prefix": args.topic_prefix,
             "mqtt_qos": args.qos,
             "interval": args.interval,
+            "mqtt_tls_ca": args.tls_ca,
+            "mqtt_tls_cert": args.tls_cert,
+            "mqtt_tls_key": args.tls_key,
+            "mqtt_tls_insecure": args.tls_insecure,
         }
     )
 
