@@ -195,7 +195,7 @@ class Apt(PackageManager):
         """Get packages available for update in APT."""
         self.updates = []
         with Popen(
-            ["apt", "list", "--upgradeable"], stdout=PIPE, stderr=STDOUT, text=True
+            ["apt", "list", "--upgradeable"], stdout=PIPE, stderr=STDOUT, text=True, env={'LANG': 'en_US.UTF-8'}
         ) as proc:
             stdout, _ = proc.communicate(timeout=30)
 
