@@ -23,3 +23,6 @@ class NoPackageManagerFound(Linux2MqttException):
 
 class PackageManagerException(Linux2MqttException):
     """Generic package manager exception occurred."""
+
+class HardDriveException(Linux2MqttException):
+    """Generic Hard Drive exception occured."""
