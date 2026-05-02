@@ -71,11 +71,11 @@ class Linux2MqttConfig(TypedDict):
     mqtt_topic_prefix: str
     mqtt_qos: int
     interval: int
-    mqtt_tls_enabled: bool
-    mqtt_tls_ca_cert: str | None
-    mqtt_tls_client_cert: str | None
-    mqtt_tls_client_key: str | None
-    mqtt_tls_insecure: bool
+    mqtt_tls_enabled: NotRequired[bool]
+    mqtt_tls_ca_cert: NotRequired[str | None]
+    mqtt_tls_client_cert: NotRequired[str | None]
+    mqtt_tls_client_key: NotRequired[str | None]
+    mqtt_tls_insecure: NotRequired[bool]
 
 
 class LinuxDeviceEntry(TypedDict):

@@ -368,31 +368,36 @@ class Linux2Mqtt:
 
         """
 
-        if not self.cfg["mqtt_tls_enabled"]:
+        if not self.cfg.get("mqtt_tls_enabled", False):
             return
 
         try:
             context = ssl.create_default_context()
 
-            if self.cfg["mqtt_tls_ca_cert"]:
-                context.load_verify_locations(cafile=self.cfg["mqtt_tls_ca_cert"])
+            tls_ca_cert = self.cfg.get("mqtt_tls_ca_cert")
+            tls_client_cert = self.cfg.get("mqtt_tls_client_cert")
+            tls_client_key = self.cfg.get("mqtt_tls_client_key")
+            tls_insecure = self.cfg.get("mqtt_tls_insecure", False)
 
-            has_cert = bool(self.cfg["mqtt_tls_client_cert"])
-            has_key = bool(self.cfg["mqtt_tls_client_key"])
+            if tls_ca_cert:
+                context.load_verify_locations(cafile=tls_ca_cert)
+
+            has_cert = bool(tls_client_cert)
+            has_key = bool(tls_client_key)
             if has_cert or has_key:
                 if not (has_cert and has_key):
                     raise Linux2MqttConfigException(
                         "TLS client certificate and key must both be provided"
                     )
-                certfile = self.cfg["mqtt_tls_client_cert"]
-                keyfile = self.cfg["mqtt_tls_client_key"]
-                if certfile is None or keyfile is None:
+                if tls_client_cert is None or tls_client_key is None:
                     raise Linux2MqttConfigException(
                         "TLS client certificate and key must both be provided"
                     )
-                context.load_cert_chain(certfile=certfile, keyfile=keyfile)
+                context.load_cert_chain(
+                    certfile=tls_client_cert, keyfile=tls_client_key
+                )
 
-            if self.cfg["mqtt_tls_insecure"]:
+            if tls_insecure:
                 main_logger.warning(
                     "TLS verification disabled via --tls-insecure. Proceed with caution."
                 )
