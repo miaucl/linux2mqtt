@@ -1,6 +1,8 @@
 """linux2mqtt type definitions."""
 
-from typing import Literal, TypedDict
+from typing import Literal, NotRequired, TypedDict
+
+Addr = tuple[str, int]
 
 StatusType = Literal["online", "offline"]
 """Metric status"""
@@ -16,6 +18,8 @@ class Linux2MqttConfig(TypedDict):
     ----------
     log_level
         Log verbosity
+    discovery
+        Enable MQTT discovery for Home Assistant and other platforms
     homeassistant_prefix
         MQTT discovery topic prefix
     homeassistant_disable_attributes
@@ -54,6 +58,7 @@ class Linux2MqttConfig(TypedDict):
     """
 
     log_level: str
+    discovery: list[str]
     homeassistant_prefix: str
     homeassistant_disable_attributes: bool
     linux2mqtt_hostname: str
@@ -84,12 +89,18 @@ class LinuxDeviceEntry(TypedDict):
         The name of the device to display in home assistant
     model
         The model of the device as additional info
+    hw_version
+        The hardware version of the device (OS version)
+    sw_version
+        The software version of the device (Linux2mqtt version)
 
     """
 
     identifiers: str
     name: str
     model: str
+    hw_version: NotRequired[str]
+    sw_version: NotRequired[str]
 
 
 class MetricEntities(TypedDict):
@@ -117,6 +128,28 @@ class MetricEntities(TypedDict):
     device_class: str | None
 
 
+class AvailabilityEntry(TypedDict):
+    """An availability entity object for discovery in home assistant.
+
+    Attributes
+    ----------
+    topic
+        The MQTT topic receiving availability updates
+    value_template
+        Template to extract device's availability from the topic
+    payload_available
+        The payload that represents the available state
+    payload_not_available
+        The payload that represents the unavailable state
+
+    """
+
+    topic: str
+    value_template: NotRequired[str]
+    payload_available: NotRequired[str]
+    payload_not_available: NotRequired[str]
+
+
 class LinuxEntry(TypedDict):
     """A linux entry object for discovery in home assistant.
 
@@ -128,8 +161,10 @@ class LinuxEntry(TypedDict):
         The unique id of the sensor in home assistant
     icon
         The icon of the sensor to display
-    availability_topic
-        The topic to check the availability of the sensor
+    availability
+        The list of topics to check the availability of the sensor
+    availability_mode
+        The conditions needed to set the entity to available
     payload_available
         The payload of availability_topic of the sensor when available
     payload_unavailable
@@ -158,7 +193,8 @@ class LinuxEntry(TypedDict):
     name: str
     unique_id: str
     icon: str | None
-    availability_topic: str
+    availability: list[AvailabilityEntry]
+    availability_mode: NotRequired[str]
     payload_available: str
     payload_not_available: str
     state_topic: str

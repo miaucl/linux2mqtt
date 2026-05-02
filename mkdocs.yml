@@ -49,8 +49,8 @@ plugins:
     - mkdocstrings:
         handlers:
             python:
-                import:
-                    - https://docs.python.org/3.11/objects.inv
+                inventories:
+                    - https://docs.python.org/3.12/objects.inv
                 options:
                     docstring_style: numpy
                     merge_init_into_class: true

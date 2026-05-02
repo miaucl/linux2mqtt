@@ -2,13 +2,13 @@
 
 import logging
 from queue import Queue
+import socket
 import threading
 import time
 from typing import Any, Self
 
 import jsons
 import psutil
-from psutil._common import addr
 
 from .const import (
     MAX_CPU_INTERVAL,
@@ -22,7 +22,7 @@ from .exceptions import (
     Linux2MqttMetricsException,
     NoPackageManagerFound,
 )
-from .helpers import sanitize
+from .helpers import addr_ip, addr_port, is_addr, sanitize
 from .package_manager import PackageManager, get_package_manager
 from .type_definitions import LinuxDeviceEntry, LinuxEntry, MetricEntities, SensorType
 
@@ -66,23 +66,26 @@ class BaseMetric:
         """Initialize base class."""
         self.polled_result = None
 
-    def get_discovery(
+    def get_discovery_for_homeassistant(
         self,
         state_topic: str,
+        linux2mqtt_availability_topic: str,
         availability_topic: str,
         device_definition: LinuxDeviceEntry,
         disable_attributes: bool,
     ) -> list[LinuxEntry]:
-        """Get the discovery topic config data.
+        """Get the home assistant discovery topic config data.
 
         Parameters
         ----------
         state_topic
             The state topic where to find the data for state and attributes
+        linux2mqtt_availability_topic
+            The availability topic for linux2mqtt
         availability_topic
             The availability topic for the entry
         device_definition
-            The device entry fro the homeassistant config
+            The device entry for the homeassistant config
         disable_attributes
             Should only one entity be created with attributes or all data as entities
 
@@ -98,9 +101,11 @@ class BaseMetric:
                     {
                         "name": self.name,
                         "unique_id": f"{device_definition['identifiers']}_{self.name_sanitized}",
-                        "availability_topic": availability_topic.format(
-                            self.name_sanitized
-                        ),
+                        "availability": [
+                            {"topic": linux2mqtt_availability_topic},
+                            {"topic": availability_topic.format(self.name_sanitized)},
+                        ],
+                        "availability_mode": "all",
                         "payload_available": "online",
                         "payload_not_available": "offline",
                         "state_topic": state_topic.format(self.name_sanitized),
@@ -124,9 +129,11 @@ class BaseMetric:
                     {
                         "name": entity["name"],
                         "unique_id": f"{device_definition['identifiers']}_{sanitize(entity['name'])}",
-                        "availability_topic": availability_topic.format(
-                            self.name_sanitized
-                        ),
+                        "availability": [
+                            {"topic": linux2mqtt_availability_topic},
+                            {"topic": availability_topic.format(self.name_sanitized)},
+                        ],
+                        "availability_mode": "all",
                         "payload_available": "online",
                         "payload_not_available": "offline",
                         "state_topic": state_topic.format(self.name_sanitized),
@@ -756,7 +763,7 @@ class NetConnectionMetrics(BaseMetric):
 
         for snicaddrs in interface_addrs.values():
             for snicaddr in snicaddrs:
-                if snicaddr.family.value in (2, 10):
+                if snicaddr.family in (socket.AF_INET, socket.AF_INET6):
                     self.ips.add(snicaddr.address)
 
     def poll(self, result_queue: Queue[Self]) -> bool:
@@ -780,58 +787,57 @@ class NetConnectionMetrics(BaseMetric):
         """
         try:
             st = psutil.net_connections()
+
             listening_ports = {
-                x.laddr.port
+                addr_port(x.laddr)
                 for x in st
                 if x.status == "LISTEN"
-                and isinstance(x.laddr, addr)
-                and x.laddr.ip in ("0.0.0.0", "::")
+                and is_addr(x.laddr)
+                and addr_ip(x.laddr) in ("0.0.0.0", "::")
             }
 
+            established = [x for x in st if x.status == "ESTABLISHED"]
+
             self.polled_result = {
-                "count": len(
-                    [x for x in st if x.status == "ESTABLISHED"]
-                ),  # deprecated
-                "total": len([x for x in st if x.status == "ESTABLISHED"]),
+                "count": len(established),  # deprecated
+                "total": len(established),
                 "ipv4": len(
                     [
                         x
-                        for x in st
-                        if x.family.value == 2
-                        and x.status == "ESTABLISHED"
-                        and isinstance(x.laddr, addr)
-                        and not x.laddr.ip.startswith("127.")
+                        for x in established
+                        if x.family == socket.AF_INET
+                        and is_addr(x.laddr)
+                        and not addr_ip(x.laddr).startswith("127.")
                     ]
                 ),
                 "ipv6": len(
                     [
                         x
-                        for x in st
-                        if x.family.value == 10
-                        and x.status == "ESTABLISHED"
-                        and isinstance(x.laddr, addr)
-                        and x.laddr.ip != "::1"
+                        for x in established
+                        if x.family == socket.AF_INET6
+                        and is_addr(x.laddr)
+                        and addr_ip(x.laddr) != "::1"
                     ]
                 ),
                 "listening_ports": list(listening_ports),
                 "outbound": [
-                    f"{x.raddr.ip}:{x.raddr.port}"
-                    for x in st
-                    if x.status == "ESTABLISHED"
-                    and isinstance(x.laddr, addr)
-                    and isinstance(x.raddr, addr)
-                    and x.laddr.ip in self.ips
-                    and x.raddr.ip not in ("::1", "127.0.0.1")
+                    f"{addr_ip(x.raddr)}:{addr_port(x.raddr)}"
+                    for x in established
+                    if is_addr(x.laddr)
+                    and is_addr(x.raddr)
+                    and addr_ip(x.laddr) in self.ips
+                    and addr_ip(x.raddr) not in ("127.0.0.1", "::1")
                 ],
                 "inbound": [
-                    f"{x.raddr.ip}:{x.raddr.port} -> {x.laddr.ip}:{x.laddr.port}"
-                    for x in st
-                    if x.status == "ESTABLISHED"
-                    and isinstance(x.laddr, addr)
-                    and isinstance(x.raddr, addr)
-                    and x.laddr.port in listening_ports
+                    f"{addr_ip(x.raddr)}:{addr_port(x.raddr)} -> "
+                    f"{addr_ip(x.laddr)}:{addr_port(x.laddr)}"
+                    for x in established
+                    if is_addr(x.laddr)
+                    and is_addr(x.raddr)
+                    and addr_port(x.laddr) in listening_ports
                 ],
             }
+
         except Exception as ex:
             raise Linux2MqttMetricsException(
                 "Could not gather and publish net connections"
@@ -850,17 +856,20 @@ class TempMetrics(BaseMetric):
 
     _name_template = "Thermal Zone ({}/{})"
     _device: str
-    _thermal_zone: str
+    _idx: int
+    _label: str
 
-    def __init__(self, device: str, thermal_zone: str):
+    def __init__(self, device: str, idx: int, label: str):
         """Initialize the thermal zone metric.
 
         Parameters
         ----------
         device
             The device
-        thermal_zone
-            The thermal zone
+        idx
+            The 0-based index of the thermal zone within the list of zones for this device
+        label
+            The label of the zone (can be empty)
 
         Raises
         ------
@@ -870,12 +879,16 @@ class TempMetrics(BaseMetric):
         """
         super().__init__()
         self._device = device
-        self._thermal_zone = thermal_zone
-        self._name = self._name_template.format(device, thermal_zone)
+        self._idx = idx
+        if not label:
+            # 1-based to match lm-sensors
+            label = f"temp{idx + 1}"
+        self._label = label
+        self._name = self._name_template.format(device, label)
         self.homeassistant_entities = [
             MetricEntities(
                 {
-                    "name": f"{self._name_template.format(device, thermal_zone)} {f}",
+                    "name": f"{self._name_template.format(device, label)} {f}",
                     "state_field": f,
                     "icon": "mdi:thermometer",
                     "unit_of_measurement": "°C",
@@ -908,17 +921,12 @@ class TempMetrics(BaseMetric):
         """
         try:
             st = psutil.sensors_temperatures()  # type: ignore[attr-defined]
-            thermal_zone = next(
-                (
-                    item
-                    for item in st.get(self._device, [])
-                    if item.label == self._thermal_zone
-                ),
-                None,
-            )
+            dev = st.get(self._device)
+            assert dev
+            thermal_zone = dev[self._idx]
             assert thermal_zone
             self.polled_result = {
-                "label": thermal_zone.label,
+                "label": self._label,
                 "current": thermal_zone.current,
                 "high": thermal_zone.high,
                 "critical": thermal_zone.critical,
@@ -941,17 +949,20 @@ class FanSpeedMetrics(BaseMetric):
 
     _name_template = "Fan Speed ({}/{})"
     _device: str
-    _fan: str
+    _idx: int
+    _label: str
 
-    def __init__(self, device: str, fan: str):
+    def __init__(self, device: str, idx: int, label: str):
         """Initialize the fan speed metric.
 
         Parameters
         ----------
         device
             The device
-        fan
-            The fan
+        idx
+            The 0-based index of the fan within the list of fans for this device
+        label
+            The label of the fan (can be empty)
 
         Raises
         ------
@@ -961,12 +972,16 @@ class FanSpeedMetrics(BaseMetric):
         """
         super().__init__()
         self._device = device
-        self._fan = fan
-        self._name = self._name_template.format(device, fan)
+        self._idx = idx
+        if not label:
+            # 1-based to match lm-sensors
+            label = f"fan{idx + 1}"
+        self._label = label
+        self._name = self._name_template.format(device, label)
         self.homeassistant_entities = [
             MetricEntities(
                 {
-                    "name": f"{self._name_template.format(device, fan)} {f}",
+                    "name": f"{self._name_template.format(device, label)} {f}",
                     "state_field": f,
                     "icon": "mdi:fan",
                     "unit_of_measurement": None,
@@ -979,7 +994,7 @@ class FanSpeedMetrics(BaseMetric):
         ]
 
     def poll(self, result_queue: Queue[Self]) -> bool:
-        """Poll new data for the thermal zone metric.
+        """Poll new data for the fan speed metric.
 
         Parameters
         ----------
@@ -999,13 +1014,12 @@ class FanSpeedMetrics(BaseMetric):
         """
         try:
             st = psutil.sensors_fans()  # type: ignore[attr-defined]
-            fan = next(
-                (item for item in st.get(self._device, []) if item.label == self._fan),
-                None,
-            )
+            dev = st.get(self._device)
+            assert dev
+            fan = dev[self._idx]
             assert fan
             self.polled_result = {
-                "label": fan.label,
+                "label": self._label,
                 "current": fan.current,
                 "unit": "rpm",
             }
