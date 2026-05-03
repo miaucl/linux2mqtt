@@ -11,10 +11,11 @@ import platform
 from queue import Empty, Queue
 import signal
 import socket
+import ssl
 import sys
 from threading import Event
 import time
-from typing import Any
+from typing import Any, cast
 import uuid
 
 import paho.mqtt.client
@@ -46,6 +47,7 @@ from .const import (
     MQTT_PORT_DEFAULT,
     MQTT_QOS_DEFAULT,
     MQTT_TIMEOUT_DEFAULT,
+    MQTT_TLS_PORT_DEFAULT,
 )
 from .exceptions import Linux2MqttConfigException, Linux2MqttConnectionException
 from .helpers import clean_for_discovery, sanitize
@@ -186,7 +188,8 @@ class Linux2Mqtt:
 
         """
         try:
-            self.mqtt = paho.mqtt.client.Client(
+            # paho-stubs does not expose paho-mqtt v2's callback API keyword.
+            self.mqtt = paho.mqtt.client.Client(  # type: ignore[call-arg]
                 callback_api_version=paho.mqtt.enums.CallbackAPIVersion.VERSION2,
                 client_id=f"{self.cfg['mqtt_client_id']}_{uuid.uuid4().hex[:6]}",
             )
@@ -204,6 +207,7 @@ class Linux2Mqtt:
                 qos=self.cfg["mqtt_qos"],
                 retain=True,
             )
+            self._configure_tls()
             self.mqtt.reconnect_delay_set(min_delay=1, max_delay=300)
             self.mqtt.connect_async(
                 self.cfg["mqtt_host"], self.cfg["mqtt_port"], self.cfg["mqtt_timeout"]
@@ -352,6 +356,57 @@ class Linux2Mqtt:
             main_logger.exception("MQTT Publish Failed")
             main_logger.debug(ex)
             raise Linux2MqttConnectionException() from ex
+
+    def _configure_tls(self) -> None:
+        """Configure TLS settings on the MQTT client when enabled.
+
+        When TLS is active the method prepares an SSL context that mirrors the
+        CLI configuration: custom CA bundle, optional client certificate pair,
+        and an insecure mode that disables verification. Errors while loading
+        any of these assets are surfaced as config exceptions so the caller can
+        fail fast before attempting the actual network connection.
+
+        """
+
+        if not self.cfg.get("mqtt_tls_enabled", False):
+            return
+
+        try:
+            context = ssl.create_default_context()
+
+            tls_ca_cert = self.cfg.get("mqtt_tls_ca_cert")
+            tls_client_cert = self.cfg.get("mqtt_tls_client_cert")
+            tls_client_key = self.cfg.get("mqtt_tls_client_key")
+            tls_insecure = self.cfg.get("mqtt_tls_insecure", False)
+
+            if tls_ca_cert:
+                context.load_verify_locations(cafile=tls_ca_cert)
+
+            has_cert = bool(tls_client_cert)
+            has_key = bool(tls_client_key)
+            if has_cert or has_key:
+                if not (has_cert and has_key):
+                    raise Linux2MqttConfigException(
+                        "TLS client certificate and key must both be provided"
+                    )
+                if tls_client_cert is None or tls_client_key is None:
+                    raise Linux2MqttConfigException(
+                        "TLS client certificate and key must both be provided"
+                    )
+                context.load_cert_chain(
+                    certfile=tls_client_cert, keyfile=tls_client_key
+                )
+
+            if tls_insecure:
+                main_logger.warning(
+                    "TLS verification disabled via --tls-insecure. Proceed with caution."
+                )
+                context.check_hostname = False
+                context.verify_mode = ssl.CERT_NONE
+
+            self.mqtt.tls_set_context(context)
+        except (OSError, ssl.SSLError) as ex:
+            raise Linux2MqttConfigException("Invalid TLS configuration") from ex
 
     def _device_definition(self) -> LinuxDeviceEntry:
         """Create device definition of a container for each entity for home assistant.
@@ -545,6 +600,62 @@ class Linux2Mqtt:
                 x += 1
 
 
+def _validate_tls_args(args: argparse.Namespace) -> None:
+    """Validate combinations of TLS command-line options.
+
+    Parameters
+    ----------
+    args
+        The parsed ``argparse`` namespace that contains TLS options passed via
+        the CLI. The function raises :class:`Linux2MqttConfigException` when
+        incompatible settings are detected (e.g. supplying certificate paths
+        without enabling TLS).
+
+    """
+
+    tls_specific_flags = any(
+        (
+            args.tls_ca,
+            args.tls_cert,
+            args.tls_key,
+            args.tls_insecure,
+        )
+    )
+
+    if tls_specific_flags and not args.tls:
+        raise Linux2MqttConfigException(
+            "TLS-related arguments require --tls to be enabled"
+        )
+
+    if args.tls and bool(args.tls_cert) ^ bool(args.tls_key):
+        raise Linux2MqttConfigException(
+            "Both --tls-cert and --tls-key must be provided for client authentication"
+        )
+
+
+def _derive_mqtt_port(args: argparse.Namespace) -> int:
+    """Derive the MQTT port, defaulting to 8883 when TLS is enabled.
+
+    Parameters
+    ----------
+    args
+        The parsed ``argparse`` namespace that may contain an explicit
+        ``--port`` override.
+
+    Returns
+    -------
+    int
+        The user-specified port when provided, otherwise the TLS-aware default
+        (``8883`` when TLS is enabled, ``1883`` otherwise).
+
+    """
+
+    port_value = cast(int | None, args.port)
+    if port_value is not None:
+        return port_value
+    return MQTT_TLS_PORT_DEFAULT if args.tls else MQTT_PORT_DEFAULT
+
+
 def configure_logger(
     logger: logging.Logger, verbosity: int, logdir: str | None
 ) -> None:
@@ -629,9 +740,9 @@ def main() -> None:
     )
     parser.add_argument(
         "--port",
-        default=MQTT_PORT_DEFAULT,
+        default=None,
         type=int,
-        help="Port or IP address of the MQTT broker (default: 1883)",
+        help="Port for the MQTT broker (default: 1883, or 8883 when --tls is set)",
     )
     parser.add_argument(
         "--client",
@@ -647,6 +758,31 @@ def main() -> None:
         "--password",
         default=None,
         help="Password for MQTT broker authentication (default: None)",
+    )
+    parser.add_argument(
+        "--tls",
+        action="store_true",
+        help="Enable TLS encryption for MQTT connections (default: disabled)",
+    )
+    parser.add_argument(
+        "--tls-ca",
+        default=None,
+        help="Path to a CA bundle for broker verification (default: system store)",
+    )
+    parser.add_argument(
+        "--tls-cert",
+        default=None,
+        help="Path to client TLS certificate in PEM format (requires --tls-key)",
+    )
+    parser.add_argument(
+        "--tls-key",
+        default=None,
+        help="Path to client TLS private key in PEM format (requires --tls-cert)",
+    )
+    parser.add_argument(
+        "--tls-insecure",
+        action="store_true",
+        help="Disable TLS certificate validation and hostname checks (not recommended)",
     )
     parser.add_argument(
         "--qos",
@@ -772,6 +908,9 @@ def main() -> None:
             "Cannot start due to bad config data type"
         ) from ex
 
+    _validate_tls_args(args)
+    mqtt_port = _derive_mqtt_port(args)
+
     configure_logger(main_logger, args.verbosity, args.logdir)
     configure_logger(mqtt_logger, args.verbosity, args.logdir)
 
@@ -789,11 +928,16 @@ def main() -> None:
             "mqtt_user": args.username,
             "mqtt_password": args.password,
             "mqtt_host": args.host,
-            "mqtt_port": args.port,
+            "mqtt_port": mqtt_port,
             "mqtt_timeout": args.timeout,
             "mqtt_topic_prefix": args.topic_prefix,
             "mqtt_qos": args.qos,
             "interval": args.interval,
+            "mqtt_tls_enabled": args.tls,
+            "mqtt_tls_ca_cert": args.tls_ca,
+            "mqtt_tls_client_cert": args.tls_cert,
+            "mqtt_tls_client_key": args.tls_key,
+            "mqtt_tls_insecure": args.tls_insecure,
         }
     )
 
