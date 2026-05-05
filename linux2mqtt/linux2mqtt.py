@@ -5,7 +5,7 @@ import argparse
 import json
 import logging
 from logging.handlers import RotatingFileHandler
-from os import geteuid, path
+from os import geteuid, listdir, path
 from pathlib import Path
 import platform
 from queue import Empty, Queue
@@ -49,13 +49,18 @@ from .const import (
     MQTT_TIMEOUT_DEFAULT,
     MQTT_TLS_PORT_DEFAULT,
 )
-from .exceptions import Linux2MqttConfigException, Linux2MqttConnectionException
+from .exceptions import (
+    HardDriveException,
+    Linux2MqttConfigException,
+    Linux2MqttConnectionException,
+)
 from .helpers import clean_for_discovery, sanitize
 from .metrics import (
     BaseMetric,
     CPUMetrics,
     DiskUsageMetrics,
     FanSpeedMetrics,
+    HardDriveMetrics,
     NetConnectionMetrics,
     NetworkMetrics,
     PackageUpdateMetrics,
@@ -884,6 +889,11 @@ def main() -> None:
         choices=range(MIN_PACKAGE_INTERVAL, MAX_PACKAGE_INTERVAL),
     )
     parser.add_argument(
+        "--harddrives",
+        help="Publish hard drive stats if available",
+        action="store_true",
+    )
+    parser.add_argument(
         "--discovery",
         default=None,
         help=f"Discovery platforms enabled (default: {DISCOVERY_DEFAULT})",
@@ -992,6 +1002,15 @@ def main() -> None:
         )
         stats.add_metric(package_updates)
 
+    if args.harddrives:
+        for drive in listdir("/dev/disk/by-id/"):
+            try:
+                harddrive = HardDriveMetrics(drive)
+                if harddrive:
+                    stats.add_metric(harddrive)
+            except HardDriveException:
+                pass
+
     if not (
         args.vm
         or args.connections
@@ -1001,6 +1020,7 @@ def main() -> None:
         or args.temp
         or args.fan
         or args.packages
+        or args.harddrives
     ):
         main_logger.warning("No metrics specified. Nothing will be published.")
 
