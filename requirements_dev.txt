@@ -5,7 +5,7 @@ types-psutil
 typing-extensions
 mypy
 pydantic
-pre-commit>=4.6.1
+pre-commit>=4.6.2
 python-dotenv>=1.2.2
 ruff~=0.16
 mkdocs-material==9.7.7
