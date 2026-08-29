@@ -118,6 +118,49 @@ Enabling this option will cause increased network traffic in order to update pac
 
 `linux2mqtt --name Server1 -vvvvv --packages=7200` will search for available updates every 2 hours
 
+### Hard Drives
+
+`linux2mqtt` can publish the status of all harddrives using the `harddrives` option. Each hard drive will present as a separate sensor in Home Assistant. The sensor state reports the harddrive status based on a the smartctl report, which generates a score. The details on the scoring methodology can be found below. Additional data is accessible as state attributes on each sensor.
+
+`linux2mqtt --name Server1 -vvvvv --interval 60 --harddrives`
+
+#### Scoring Methodology
+
+The score to status conversion is:
+
+| Status  | Score |
+| ------- | ----- |
+| HEALTHY | <= 10 |
+| GOOD    | <= 20 |
+| WARNING | <= 50 |
+| FAILING | > 50  |
+
+##### ATA Scoring
+
+| SMART Attribute               | Penalty | Notes                          |
+| ----------------------------- | ------- | ------------------------------ |
+| Reallocated Sector Count      | ×2      | Indicates remapped bad sectors |
+| Current Pending Sector        | ×3      | Sectors waiting reallocation   |
+| Pending Sector > 10           | +30     | Additional penalty             |
+| Offline Uncorrectable         | ×3      | Unrecoverable errors           |
+| Reported Uncorrectable Errors | ×2      | Read/write failures            |
+| Command Timeout               | ×1.5    | Communication delays           |
+| UDMA CRC Error Count          | max +10 | Usually cable/interface issue  |
+
+##### NVME Scoring
+
+| SMART Attribute                 | Penalty | Notes                                      |
+| ------------------------------- | ------- | ------------------------------------------ |
+| critical_warning ≠ 0            | +100    | Any critical SMART flag triggers high risk |
+| percent_used > 70%              | +10     | NAND wear indicator                        |
+| percent_used > 80%              | +20     | Increased wear                             |
+| percent_used > 90%              | +50     | Near end-of-life                           |
+| media_errors                    | ×5      | Data integrity errors                      |
+| num_error_log_entries           | max +50 | Error events (capped)                      |
+| warning_temp_time > 0           | +10     | Drive exceeded warning temp                |
+| critical_temp_time > 0          | +30     | Drive exceeded critical temp               |
+| available_spare below threshold | +30     | Spare blocks depleted                      |
+
 ## Logging
 
 `linux2mqtt` can log to a directory in addition to the console using the `--logdir` parameter. The specified directory can be absolute or relative and is created if it doesn't exist. The verbosity parameter applies to file logging and the log file size is limited to 1M bytes and 5 previous files are kept.
