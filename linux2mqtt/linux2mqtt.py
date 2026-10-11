@@ -188,8 +188,7 @@ class Linux2Mqtt:
 
         """
         try:
-            # paho-stubs does not expose paho-mqtt v2's callback API keyword.
-            self.mqtt = paho.mqtt.client.Client(  # type: ignore[call-arg]
+            self.mqtt = paho.mqtt.client.Client(
                 callback_api_version=paho.mqtt.enums.CallbackAPIVersion.VERSION2,
                 client_id=f"{self.cfg['mqtt_client_id']}_{uuid.uuid4().hex[:6]}",
             )
