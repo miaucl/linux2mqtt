@@ -17,11 +17,13 @@ from .const import (
     MIN_NET_INTERVAL,
 )
 from .exceptions import (
+    HardDriveException,
     Linux2MqttConfigException,
     Linux2MqttException,
     Linux2MqttMetricsException,
     NoPackageManagerFound,
 )
+from .harddrive import HardDrive, get_hard_drive
 from .helpers import addr_ip, addr_port, is_addr, sanitize
 from .package_manager import PackageManager, get_package_manager
 from .type_definitions import LinuxDeviceEntry, LinuxEntry, MetricEntities, SensorType
@@ -1171,6 +1173,119 @@ class PackageUpdateMetrics(BaseMetric):
             result_queue=result_queue,
             metric=self,
             package_manager=self.package_manager,
+        )
+        th.daemon = True
+        th.start()
+        return True  # Expect a deferred result
+
+
+class HardDriveMetricThread(BaseMetricThread):
+    """Hard Drive metric thread."""
+
+    def __init__(
+        self, result_queue: Queue[BaseMetric], metric: BaseMetric, harddrive: HardDrive
+    ):
+        """Initialize the HardDrive thread.
+
+        Parameters
+        ----------
+        result_queue
+            The queue to put the metric into once the data is gathered
+        metric
+            The hard drive metric to gather data for
+        harddrive
+            The type of hard drive to gather data over
+
+        """
+        threading.Thread.__init__(self)
+        self.result_queue = result_queue
+        self.metric = metric
+        self.harddrive = harddrive
+
+    def run(self) -> None:
+        """Run the hard drive thread. Once data is gathered, it is put into the queue and the thread exits.
+
+        Raises
+        ------
+        Linux2MqttMetricsException
+            hard drive information could not be gathered or prepared for publishing
+
+        """
+        try:
+            self.harddrive.parse_attributes()
+            self.metric.polled_result = {
+                **self.harddrive.attributes,  # type: ignore[unused-ignore]
+            }
+            self.result_queue.put(self.metric)
+        except Exception as ex:
+            raise Linux2MqttMetricsException(
+                f"Could not gather and publish hard drive data {self.metric._name}"
+            ) from ex
+
+
+class HardDriveMetrics(BaseMetric):
+    """Hard Drive metric."""
+
+    icon = "mdi:harddisk"
+    unit_of_measurement = ""
+    state_field = "status"
+
+    _name_template = "Hard Drive (ID:{})"
+    _device: str
+    _thermal_zone: str
+
+    def __init__(self, device: str):
+        """Initialize the hard drive metric.
+
+        Parameters
+        ----------
+        device
+            The device
+
+        Raises
+        ------
+        Linux2MqttException
+            Bad config
+
+        """
+        super().__init__()
+
+        try:
+            self.harddrive = get_hard_drive(device_name=device)
+            self._name = self._name_template.format(device)
+        except HardDriveException as ex:
+            raise Linux2MqttException(
+                "Failed to find a suitable hard drive type. Currently supported are: Hard Disk and NVME"
+            ) from ex
+
+    def poll(self, result_queue: Queue[BaseMetric]) -> bool:
+        """Poll new data for the hard drive metric.
+
+        Parameters
+        ----------
+        result_queue
+            The queue where to post new data once gathered
+
+        Returns
+        -------
+        bool = False
+            True as the data is gathered lazily
+
+        Raises
+        ------
+        Linux2MqttException
+            General exception
+
+        """
+        try:
+            assert result_queue
+        except ReferenceError as e:
+            raise Linux2MqttException(
+                "Cannot start hard drive metric due to missing result_queue"
+            ) from e
+        self.result_queue = result_queue
+        th = HardDriveMetricThread(
+            result_queue=result_queue, metric=self, harddrive=self.harddrive
         )
         th.daemon = True
         th.start()
